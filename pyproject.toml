@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "creator-dna"
+version = "0.1.0"
+description = "Creator style distillation and reusable Skill generation"
+requires-python = ">=3.10"
+dependencies = ["jsonschema>=4.18,<5", "PyYAML>=6,<7"]
+
+[project.optional-dependencies]
+asr = ["faster-whisper>=1.1,<2"]
+
+[project.scripts]
+creator-dna = "creator_dna.cli:main"
+
+[tool.setuptools]
+packages = ["creator_dna", "creator_dna.meta_skill"]
+
+[tool.setuptools.package-dir]
+creator_dna = "src/creator_dna"
+"creator_dna.meta_skill" = ".agents/skills/creator-dna-distiller"
+
+[tool.setuptools.package-data]
+creator_dna = ["schemas/*.json"]
+"creator_dna.meta_skill" = ["*.md", "references/*.md"]
