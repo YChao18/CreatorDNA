@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "creator_id",
+    "authorized",
+    "processing",
+    "confirmation",
+    "confirmed_at",
+    "source_sha256",
+    "audio_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "3.0-04"
+    },
+    "creator_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authorized": {
+      "type": "boolean"
+    },
+    "processing": {
+      "enum": [
+        "local",
+        "cloud"
+      ]
+    },
+    "confirmation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "confirmed_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_sha256": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "audio_sha256": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    }
+  }
+}

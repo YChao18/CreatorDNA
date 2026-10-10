@@ -4,7 +4,8 @@ from pathlib import Path
 from .errors import CreatorDNAError
 from .storage import digest_file
 
-MEDIA_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".mp3", ".wav", ".m4a", ".flac", ".aac", ".ogg"}
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
+MEDIA_EXTENSIONS = VIDEO_EXTENSIONS | {".mp3", ".wav", ".m4a", ".flac", ".aac", ".ogg"}
 TEXT_EXTENSIONS = (".json", ".srt", ".txt", ".md")
 
 

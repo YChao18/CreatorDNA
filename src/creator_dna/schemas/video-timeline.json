@@ -1,0 +1,852 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "3.0-05",
+      "type": "string"
+    },
+    "duration": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "frame_rate": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pixel_aspect_ratio": {
+          "const": "1",
+          "type": "string"
+        },
+        "orientation": {
+          "type": "string",
+          "enum": [
+            "portrait",
+            "landscape",
+            "square"
+          ]
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "frame_rate",
+        "pixel_aspect_ratio",
+        "orientation"
+      ],
+      "additionalProperties": false
+    },
+    "audio": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "const": 0,
+          "type": "integer"
+        },
+        "end": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "source_start": {
+          "const": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "text",
+        "start",
+        "end",
+        "source_start"
+      ],
+      "additionalProperties": false
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video",
+              "product",
+              "screenshot",
+              "background",
+              "portrait"
+            ]
+          },
+          "media_type": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rights": {
+            "type": "string",
+            "enum": [
+              "owned",
+              "licensed",
+              "authorized",
+              "unknown",
+              "denied"
+            ]
+          },
+          "rights_note": {
+            "type": "string",
+            "minLength": 1
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_start": {
+            "type": "number",
+            "minimum": 0
+          },
+          "source_end": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "audio_offset": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "audio_sha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "asset_id",
+          "kind",
+          "media_type",
+          "path",
+          "sha256",
+          "source",
+          "rights",
+          "rights_note",
+          "topics",
+          "description",
+          "width",
+          "height",
+          "duration",
+          "source_start",
+          "source_end",
+          "audio_offset",
+          "audio_sha256"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "foreground": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "clip_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scene_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start": {
+            "type": "number",
+            "minimum": 0
+          },
+          "end": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "portrait",
+              "b_roll",
+              "background"
+            ]
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_start": {
+            "type": "number",
+            "minimum": 0
+          },
+          "source_end": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "layout": {
+            "type": "object",
+            "properties": {
+              "fit": {
+                "type": "string",
+                "enum": [
+                  "cover",
+                  "contain"
+                ]
+              },
+              "anchor": {
+                "type": "string",
+                "enum": [
+                  "center",
+                  "left",
+                  "right"
+                ]
+              },
+              "rect": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "width": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "height": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "width",
+                  "height"
+                ],
+                "additionalProperties": false
+              },
+              "crop": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "y": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "width": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "height": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "width",
+                      "height"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "pad_color": {
+                "type": "string",
+                "pattern": "^#[0-9A-Fa-f]{6}$"
+              }
+            },
+            "required": [
+              "fit",
+              "anchor",
+              "rect",
+              "crop",
+              "pad_color"
+            ],
+            "additionalProperties": false
+          },
+          "transition": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "cut",
+                  "fade"
+                ]
+              },
+              "duration": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "type",
+              "duration"
+            ],
+            "additionalProperties": false
+          },
+          "selection_reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mute": {
+            "const": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "clip_id",
+          "scene_id",
+          "start",
+          "end",
+          "role",
+          "asset_id",
+          "source_start",
+          "source_end",
+          "layout",
+          "transition",
+          "selection_reason",
+          "mute"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "background": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "clip_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scene_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start": {
+            "type": "number",
+            "minimum": 0
+          },
+          "end": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "portrait",
+              "b_roll",
+              "background"
+            ]
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_start": {
+            "type": "number",
+            "minimum": 0
+          },
+          "source_end": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "layout": {
+            "type": "object",
+            "properties": {
+              "fit": {
+                "type": "string",
+                "enum": [
+                  "cover",
+                  "contain"
+                ]
+              },
+              "anchor": {
+                "type": "string",
+                "enum": [
+                  "center",
+                  "left",
+                  "right"
+                ]
+              },
+              "rect": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "width": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "height": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "width",
+                  "height"
+                ],
+                "additionalProperties": false
+              },
+              "crop": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "y": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "width": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "height": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "width",
+                      "height"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "pad_color": {
+                "type": "string",
+                "pattern": "^#[0-9A-Fa-f]{6}$"
+              }
+            },
+            "required": [
+              "fit",
+              "anchor",
+              "rect",
+              "crop",
+              "pad_color"
+            ],
+            "additionalProperties": false
+          },
+          "transition": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "cut",
+                  "fade"
+                ]
+              },
+              "duration": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "type",
+              "duration"
+            ],
+            "additionalProperties": false
+          },
+          "selection_reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mute": {
+            "const": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "clip_id",
+          "scene_id",
+          "start",
+          "end",
+          "role",
+          "asset_id",
+          "source_start",
+          "source_end",
+          "layout",
+          "transition",
+          "selection_reason",
+          "mute"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "subtitles": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "style": {
+          "type": "object",
+          "properties": {
+            "font": {
+              "type": "string",
+              "minLength": 1
+            },
+            "font_size": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "color": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "highlight_color": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "outline_color": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "outline": {
+              "type": "number",
+              "minimum": 0
+            },
+            "shadow": {
+              "type": "number",
+              "minimum": 0
+            },
+            "position": {
+              "type": "string",
+              "enum": [
+                "bottom",
+                "top",
+                "center"
+              ]
+            },
+            "margin_x": {
+              "type": "number",
+              "minimum": 0
+            },
+            "margin_y": {
+              "type": "number",
+              "minimum": 0
+            },
+            "max_chars_per_line": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_lines": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "font",
+            "font_size",
+            "color",
+            "highlight_color",
+            "outline_color",
+            "outline",
+            "shadow",
+            "position",
+            "margin_x",
+            "margin_y",
+            "max_chars_per_line",
+            "max_lines"
+          ],
+          "additionalProperties": false
+        },
+        "cues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "cue_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "start": {
+                "type": "number",
+                "minimum": 0
+              },
+              "end": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "keywords": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "timing_basis": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "cue_id",
+              "start",
+              "end",
+              "text",
+              "keywords",
+              "timing_basis"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "style",
+        "cues"
+      ],
+      "additionalProperties": false
+    },
+    "missing_assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "scene_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "portrait",
+              "b_roll",
+              "background"
+            ]
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "blocking": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "scene_id",
+          "role",
+          "topics",
+          "reason",
+          "blocking"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "audio_manifest": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "style_profile_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "direction_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "audio_manifest",
+        "style_profile_sha256",
+        "direction_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "ready_for_render": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "duration",
+    "output",
+    "audio",
+    "assets",
+    "foreground",
+    "background",
+    "subtitles",
+    "missing_assets",
+    "provenance",
+    "ready_for_render"
+  ],
+  "additionalProperties": false
+}

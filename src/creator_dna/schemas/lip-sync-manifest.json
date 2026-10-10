@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "creator_id",
+    "provider",
+    "model",
+    "created_at",
+    "video",
+    "sha256",
+    "duration",
+    "reference_type",
+    "source_sha256",
+    "audio_sha256",
+    "consent",
+    "selection",
+    "settings",
+    "backend",
+    "verification",
+    "human_review",
+    "review_checks"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "3.0-04"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "creator_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "video": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "duration": {
+      "type": "number",
+      "minimum": 5,
+      "maximum": 10
+    },
+    "reference_type": {
+      "enum": [
+        "video",
+        "image"
+      ]
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "audio_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "consent": {
+      "type": "object"
+    },
+    "selection": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "settings": {
+      "type": "object"
+    },
+    "backend": {
+      "type": "object"
+    },
+    "verification": {
+      "type": "object"
+    },
+    "human_review": {
+      "const": "pending"
+    },
+    "review_checks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 7
+    }
+  }
+}

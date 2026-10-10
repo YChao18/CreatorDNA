@@ -1,0 +1,1 @@
+{"segment_seconds": 20, "crf": 18, "preset": "medium", "threads": 2, "ffmpeg": "ffmpeg", "ffprobe": "ffprobe"}

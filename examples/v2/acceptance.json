@@ -1,0 +1,10 @@
+{
+  "schema_version": "2.0",
+  "id": "synthetic-acceptance-v1",
+  "purpose": "acceptance",
+  "cases": [
+    {"id": "a1", "topic": "为什么睡前准备明天要用的东西能减少忙乱", "category": "regular", "brief": "合成演示选题，无需引用数据。", "human_reference": null},
+    {"id": "a2", "topic": "社区讨论共享空间时如何先明确共同目标", "category": "distant", "brief": "合成演示选题，不能假设所有人立场相同。", "human_reference": null},
+    {"id": "a3", "topic": "如何安排既紧急又重要但资源有限的多项工作", "category": "complex", "brief": "合成演示选题，承认取舍，不承诺万能解法。", "human_reference": null}
+  ]
+}

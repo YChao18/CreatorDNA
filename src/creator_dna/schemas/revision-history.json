@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "minLength": 1,
+      "const": "2.0"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "creator_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "skill_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "max_revisions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1,
+      "enum": [
+        "passed",
+        "failed",
+        "unable",
+        "interrupted"
+      ]
+    },
+    "stop_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "script": {
+            "type": "string",
+            "minLength": 1
+          },
+          "report": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "minLength": 1,
+            "enum": [
+              "passed",
+              "failed",
+              "unable"
+            ]
+          }
+        },
+        "required": [
+          "index",
+          "script",
+          "report",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    },
+    "human_advice": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 0
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "creator_id",
+    "skill_version",
+    "max_revisions",
+    "status",
+    "stop_reason",
+    "attempts",
+    "human_advice"
+  ],
+  "additionalProperties": false
+}

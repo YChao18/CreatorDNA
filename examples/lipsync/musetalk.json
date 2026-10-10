@@ -1,0 +1,9 @@
+{
+  "provider": "musetalk",
+  "model": "v15",
+  "repository": "workspace/models/MuseTalk",
+  "python": "workspace/models/musetalk-env/Scripts/python.exe",
+  "batch_size": 2,
+  "float16": true,
+  "parsing_mode": "jaw"
+}

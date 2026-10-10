@@ -1,0 +1,28 @@
+{
+  "schema_version": "3.0-06",
+  "profile": "../../workspace/your-assets/video-style-profile.json",
+  "assets": "../../workspace/your-assets/production-assets.json",
+  "skill_version": "v001",
+  "quality": false,
+  "director": "agent",
+  "tts": "../tts/minimax-cn.json",
+  "voice_asset": "请替换为已授权已注册音色资产ID",
+  "lipsync": "../lipsync/musetalk.json",
+  "portrait": {
+    "library": "../../workspace/your-assets/library.json",
+    "review": "../../workspace/your-assets/portrait-review.json",
+    "cooldown": 30,
+    "max_uses": 1
+  },
+  "portrait_authorization": {
+    "creator_id": "creator-001",
+    "authorized": false,
+    "processing": "local",
+    "scope": "selected_portraits_with_workflow_speech",
+    "source_sha256": ["0000000000000000000000000000000000000000000000000000000000000000"],
+    "confirmation": "填写真实授权依据、审核人；确认本工作流使用选定人像及新生成口播",
+    "confirmed_at": "请填写确认时间"
+  },
+  "render": {"segment_seconds": 20, "crf": 18, "preset": "medium", "threads": 2},
+  "agent": {"binary": "codex", "timeout": 900}
+}

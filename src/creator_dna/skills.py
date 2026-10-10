@@ -1,3 +1,4 @@
+import difflib
 import re
 import shutil
 import uuid
@@ -89,8 +90,11 @@ class SkillManager:
         write_text(stage / "SKILL.md", markdown.rstrip() + "\n")
         write_text(stage / "references" / "style-guide.md", style_guide(profile))
         write_json(stage / "style-profile.json", profile)
-        write_json(stage / "metadata.json", {"schema_version": "1.0", "creator_id": creator_id,
+        write_json(stage / "metadata.json", {"schema_version": "2.0", "creator_id": creator_id,
                    "version": version, "status": "draft", "created_at": now(), "run_id": run.name,
+                   "skill_id": f"creator-{creator_id}", "modified_at": now(), "change_notes": "素材蒸馏",
+                   "parent_version": versions[-1].name if versions else None, "test_run_ids": [],
+                   "sources": [{"source_id": t["source_id"], "sha256": t["source_sha256"]} for t in transcripts],
                    "files": {name: digest_file(stage / name) for name in
                              ["SKILL.md", "references/style-guide.md", "style-profile.json"]}})
         target = root / version
@@ -103,11 +107,15 @@ class SkillManager:
             active = root / "active.json"
             if not active.exists():
                 raise CreatorDNAError("尚无已确认 Skill。先查看蒸馏结果，再运行 skills approve --creator ID --version v001。")
-            version = read_json(active)["version"]
+            pointer = read_json(active)
+            if not isinstance(pointer, dict) or not isinstance(pointer.get("version"), str):
+                raise CreatorDNAError("Skill 激活记录格式错误，需恢复有效版本指针。")
+            version = pointer["version"]
         folder = root / validate_version(version)
         if not folder.is_dir() or folder.is_symlink():
             raise CreatorDNAError(f"Skill 版本不存在：{folder}")
         metadata = read_json(folder / "metadata.json")
+        validate(metadata, "skill-metadata")
         if metadata.get("creator_id") != creator_id or metadata.get("version") != version:
             raise CreatorDNAError("Skill 元数据与创作者或版本不一致。")
         if require_approved and metadata.get("status") != "approved":
@@ -122,17 +130,41 @@ class SkillManager:
                 raise CreatorDNAError(f"Skill 文件被修改或缺失：{path}。使用 skills revise 创建新版本并重新确认。")
         markdown = (folder / "SKILL.md").read_text(encoding="utf-8")
         validate_skill(markdown, creator_id)
-        validate(read_json(folder / "style-profile.json"), "style-profile")
+        profile = read_json(folder / "style-profile.json")
+        validate(profile, "style-profile")
+        if profile["creator_id"] != creator_id:
+            raise CreatorDNAError("风格资料与创作者不一致。")
         return folder, metadata
 
-    def approve(self, creator_id, version):
+    def approve(self, creator_id, version, comparison_id=None, confirmation=None):
         folder, metadata = self.load(creator_id, version, require_approved=False)
-        metadata.update(status="approved", approved_at=now())
+        if metadata.get("quality_gate_required"):
+            if not comparison_id or not confirmation or not confirmation.strip():
+                raise CreatorDNAError("V2 候选必须提供 acceptance 对照运行 --comparison 和人工确认 --confirmation。")
+            from .quality import QualityWorkflow
+            from .evaluation import topic_key
+            quality = QualityWorkflow(self.workspace)
+            comparison = read_json(quality.run_path(creator_id, comparison_id) / "comparison.json")
+            checked = quality.compare_data(creator_id, comparison["baseline_run_id"], comparison["candidate_run_id"])
+            if (checked["purpose"] != "acceptance" or checked["candidate_version"] != version or
+                    checked["baseline_version"] != metadata.get("comparison_base_version", metadata.get("parent_version")) or not checked["eligible"]):
+                raise CreatorDNAError("候选未通过与父版本的独立 acceptance 对照。")
+            self.load(creator_id, checked["baseline_version"])
+            batch = read_json(quality.run_path(creator_id, checked["candidate_run_id"]) / "batch-report.json")
+            topics = {topic_key(c["topic"]) for c in batch["dataset"]["cases"]}
+            if topics & set(metadata.get("training_topics", [])):
+                raise CreatorDNAError("验收选题与优化训练选题重叠，不能发布。")
+            if "model" in batch["generation_config"]["agent"] and not batch["generation_config"]["agent"]["model"]:
+                raise CreatorDNAError("发布对照需用 --model 固定模型；默认模型配置可能在两次运行之间改变。")
+            metadata.update(comparison_run_id=comparison_id, human_confirmation=confirmation,
+                            acceptance_dataset_sha256=checked["dataset_sha256"])
+        metadata.update(status="approved", approved_at=now(), modified_at=now())
         write_json(folder / "metadata.json", metadata)
-        write_json(folder.parent / "active.json", {"version": version})
+        previous = read_json(folder.parent / "active.json")["version"] if (folder.parent / "active.json").exists() else None
+        write_json(folder.parent / "active.json", {"version": version, "previous_version": previous, "updated_at": now()})
         return folder
 
-    def revise(self, creator_id, version, markdown_path):
+    def revise(self, creator_id, version, markdown_path, changes=None):
         folder, metadata = self.load(creator_id, version, require_approved=False)
         markdown = Path(markdown_path).read_text(encoding="utf-8-sig")
         validate_skill(markdown, creator_id)
@@ -145,12 +177,46 @@ class SkillManager:
             (stage / name).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(folder / name, stage / name)
         write_text(stage / "SKILL.md", markdown.rstrip() + "\n")
-        metadata.update(version=new_version, status="draft", created_at=now(), parent_version=version)
+        metadata.update(schema_version="2.0", version=new_version, status="draft", created_at=now(), modified_at=now(), parent_version=version,
+                        skill_id=f"creator-{creator_id}", change_notes="人工修订", test_run_ids=[])
         metadata.pop("approved_at", None)
+        for key in ["comparison_run_id", "human_confirmation", "acceptance_dataset_sha256"]:
+            metadata.pop(key, None)
+        if changes:
+            metadata.update(changes)
+        if metadata.get("quality_gate_required"):
+            metadata.setdefault("comparison_base_version", version)
         metadata["files"]["SKILL.md"] = digest_file(stage / "SKILL.md")
         write_json(stage / "metadata.json", metadata)
         stage.rename(target)
         return target
+
+    def link_test(self, creator_id, version, run_id):
+        folder, metadata = self.load(creator_id, version, require_approved=False)
+        tests = metadata.setdefault("test_run_ids", [])
+        if run_id not in tests:
+            tests.append(run_id)
+            metadata["modified_at"] = now()
+            write_json(folder / "metadata.json", metadata)
+
+    def diff(self, creator_id, left, right):
+        a, _ = self.load(creator_id, left, require_approved=False)
+        b, _ = self.load(creator_id, right, require_approved=False)
+        chunks = []
+        for name in ["SKILL.md", "references/style-guide.md", "style-profile.json"]:
+            chunks.extend(difflib.unified_diff((a / name).read_text(encoding="utf-8").splitlines(True),
+                (b / name).read_text(encoding="utf-8").splitlines(True), fromfile=f"{left}/{name}", tofile=f"{right}/{name}"))
+        return "".join(chunks)
+
+    def rollback(self, creator_id, version):
+        folder, _ = self.load(creator_id, version)
+        active = folder.parent / "active.json"
+        previous = read_json(active)["version"] if active.exists() else None
+        run = self.workspace.new_run(creator_id, "rollback")
+        write_json(run / "rollback.json", {"from_version": previous, "to_version": version, "created_at": now()})
+        write_json(active, {"version": version, "previous_version": previous, "updated_at": now(), "rollback_run_id": run.name})
+        self.workspace.finish(run, "completed")
+        return folder
 
     def export(self, creator_id, version, destination):
         folder, _ = self.load(creator_id, version)

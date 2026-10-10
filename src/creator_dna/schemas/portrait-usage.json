@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "events"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "3.0-04"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "timeline",
+          "candidate_id",
+          "source_sha256",
+          "source_start",
+          "source_end",
+          "position",
+          "duration",
+          "action_key",
+          "scene_id",
+          "start_pose",
+          "end_pose",
+          "transition",
+          "task_id",
+          "usage_count",
+          "status"
+        ],
+        "properties": {
+          "timeline": {
+            "type": "string",
+            "minLength": 1
+          },
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source_start": {
+            "type": "number",
+            "minimum": 0
+          },
+          "source_end": {
+            "type": "number",
+            "minimum": 0
+          },
+          "position": {
+            "type": "number",
+            "minimum": 0
+          },
+          "duration": {
+            "type": "number",
+            "minimum": 0
+          },
+          "action_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scene_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start_pose": {
+            "type": "string",
+            "minLength": 1
+          },
+          "end_pose": {
+            "type": "string",
+            "minLength": 1
+          },
+          "transition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "task_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "usage_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "enum": [
+              "reserved",
+              "generated_pending_review",
+              "failed_reserved_for_retry"
+            ]
+          },
+          "artifact": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

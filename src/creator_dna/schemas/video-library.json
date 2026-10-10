@@ -1,0 +1,1111 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "3.0-01"
+      ]
+    },
+    "creator_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "input_folder": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "partial",
+        "failed"
+      ]
+    },
+    "analysis_provider": {
+      "enum": [
+        "local"
+      ]
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "output_templates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/template"
+      }
+    },
+    "similar_visual_groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/group"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "video_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "analyzed_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_duration": {
+          "type": "number",
+          "minimum": 0
+        },
+        "format_distribution": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "duplicate_source_groups": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "candidate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fixed_scene_count": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "video_count",
+        "analyzed_count",
+        "failed_count",
+        "total_duration",
+        "format_distribution",
+        "duplicate_source_groups",
+        "candidate_count",
+        "fixed_scene_count"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "creator_id",
+    "run_id",
+    "created_at",
+    "input_folder",
+    "status",
+    "analysis_provider",
+    "sources",
+    "output_templates",
+    "similar_visual_groups",
+    "summary"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "video_stream_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "display_width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "display_height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "display_aspect_ratio": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "display_aspect_ratio_value": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "sample_aspect_ratio": {
+          "type": "string"
+        },
+        "sample_aspect_ratio_assumed": {
+          "type": "boolean"
+        },
+        "reported_display_aspect_ratio": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rotation_degrees": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360
+        },
+        "fps": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "avg_frame_rate": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nominal_frame_rate": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "variable_frame_rate_hint": {
+          "type": "boolean"
+        },
+        "duration": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "video_codec": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pixel_format": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "audio_streams": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "stream_index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "codec": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sample_rate": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "channels": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              }
+            },
+            "required": [
+              "stream_index",
+              "codec",
+              "sample_rate",
+              "channels"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "subtitle_streams": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "container": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "video_stream_index",
+        "width",
+        "height",
+        "display_width",
+        "display_height",
+        "display_aspect_ratio",
+        "display_aspect_ratio_value",
+        "sample_aspect_ratio",
+        "sample_aspect_ratio_assumed",
+        "reported_display_aspect_ratio",
+        "rotation_degrees",
+        "fps",
+        "avg_frame_rate",
+        "nominal_frame_rate",
+        "variable_frame_rate_hint",
+        "duration",
+        "video_codec",
+        "pixel_format",
+        "audio_streams",
+        "subtitle_streams",
+        "container"
+      ],
+      "additionalProperties": false
+    },
+    "shot": {
+      "type": "object",
+      "properties": {
+        "shot_id": {
+          "type": "string"
+        },
+        "start": {
+          "type": "number",
+          "minimum": 0
+        },
+        "end": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "duration": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "scene_id": {
+          "type": "null"
+        },
+        "scene_type": {
+          "enum": [
+            "unknown"
+          ]
+        },
+        "status": {
+          "enum": [
+            "pending_review"
+          ]
+        },
+        "basis": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "shot_id",
+        "start",
+        "end",
+        "duration",
+        "scene_id",
+        "scene_type",
+        "status",
+        "basis"
+      ],
+      "additionalProperties": false
+    },
+    "candidate": {
+      "type": "object",
+      "properties": {
+        "candidate_id": {
+          "type": "string"
+        },
+        "shot_id": {
+          "type": "string"
+        },
+        "start": {
+          "type": "number",
+          "minimum": 0
+        },
+        "end": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "duration": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "scene_type": {
+          "enum": [
+            "unknown"
+          ]
+        },
+        "category": {
+          "type": "null"
+        },
+        "suggested_categories": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D",
+              "E"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "status": {
+          "enum": [
+            "pending_review"
+          ]
+        },
+        "confidence": {
+          "type": "null"
+        },
+        "person_visibility": {
+          "enum": [
+            "unknown"
+          ]
+        },
+        "sampled_face_detection_ratio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "face_area_ratio_mean": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "face_center_mean": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reuse_advice": {
+          "type": "string"
+        },
+        "quality_issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_frame_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "similar_visual_group_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "basis": {
+          "type": "string"
+        },
+        "manual_checks": {
+          "type": "object",
+          "properties": {
+            "person_visibility": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "composition": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "fixed_scene": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "face_clarity": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "mouth_visibility": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "head_motion": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "expression": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "body_action": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "subtitle_position_style_occlusion": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "b_roll_product_screenshot_background": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "action_continuity": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "shot_matching": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "repeated_action_risk": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "lip_sync_suitability": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending_review"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "status",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "person_visibility",
+            "composition",
+            "fixed_scene",
+            "face_clarity",
+            "mouth_visibility",
+            "head_motion",
+            "expression",
+            "body_action",
+            "subtitle_position_style_occlusion",
+            "b_roll_product_screenshot_background",
+            "action_continuity",
+            "shot_matching",
+            "repeated_action_risk",
+            "lip_sync_suitability"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "candidate_id",
+        "shot_id",
+        "start",
+        "end",
+        "duration",
+        "scene_type",
+        "category",
+        "suggested_categories",
+        "status",
+        "confidence",
+        "person_visibility",
+        "sampled_face_detection_ratio",
+        "face_area_ratio_mean",
+        "face_center_mean",
+        "reuse_advice",
+        "quality_issues",
+        "evidence_frame_ids",
+        "similar_visual_group_ids",
+        "basis",
+        "manual_checks"
+      ],
+      "additionalProperties": false
+    },
+    "frame": {
+      "type": "object",
+      "properties": {
+        "frame_id": {
+          "type": "string"
+        },
+        "time": {
+          "type": "number",
+          "minimum": 0
+        },
+        "path": {
+          "type": "string"
+        },
+        "brightness": {
+          "type": "number",
+          "minimum": 0
+        },
+        "faces": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "width": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "height": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "sharpness_proxy": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "width",
+                  "height",
+                  "sharpness_proxy"
+                ],
+                "additionalProperties": false
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "image_signature": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "minItems": 256,
+          "maxItems": 256
+        },
+        "frame_change_proxy": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "compared_frame_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "frame_id",
+        "time",
+        "path",
+        "brightness",
+        "faces",
+        "image_signature",
+        "frame_change_proxy",
+        "compared_frame_id"
+      ],
+      "additionalProperties": false
+    },
+    "source": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "relative_path": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "source_id": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "status": {
+              "enum": [
+                "failed"
+              ]
+            },
+            "error": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "relative_path",
+            "path",
+            "source_id",
+            "sha256",
+            "status",
+            "error"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "relative_path": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "source_id": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "status": {
+              "enum": [
+                "analyzed"
+              ]
+            },
+            "error": {
+              "type": "null"
+            },
+            "metadata": {
+              "$ref": "#/$defs/metadata"
+            },
+            "shots": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/shot"
+              },
+              "minItems": 1
+            },
+            "candidates": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/candidate"
+              }
+            },
+            "frames": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/frame"
+              },
+              "minItems": 1
+            },
+            "contacts": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "sampling_limited": {
+              "type": "boolean"
+            },
+            "cuts": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "face_detector": {
+              "enum": [
+                "opencv-haar-frontal",
+                "unavailable_or_disabled"
+              ]
+            }
+          },
+          "required": [
+            "relative_path",
+            "path",
+            "source_id",
+            "sha256",
+            "status",
+            "error",
+            "metadata",
+            "shots",
+            "candidates",
+            "frames",
+            "contacts",
+            "sampling_limited",
+            "cuts",
+            "face_detector"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "template": {
+      "type": "object",
+      "properties": {
+        "template_id": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "display_aspect_ratio": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "frame_rate": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "total_duration": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "pixel_aspect_ratio": {
+          "enum": [
+            "1"
+          ]
+        },
+        "rotation_degrees": {
+          "enum": [
+            0
+          ]
+        },
+        "status": {
+          "enum": [
+            "recommended_pending_review"
+          ]
+        },
+        "basis": {
+          "type": "string"
+        },
+        "preferred_by_duration": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "template_id",
+        "width",
+        "height",
+        "display_aspect_ratio",
+        "frame_rate",
+        "source_ids",
+        "total_duration",
+        "pixel_aspect_ratio",
+        "rotation_degrees",
+        "status",
+        "basis",
+        "preferred_by_duration"
+      ],
+      "additionalProperties": false
+    },
+    "group": {
+      "type": "object",
+      "properties": {
+        "group_id": {
+          "type": "string"
+        },
+        "frames": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source_id": {
+                "type": "string"
+              },
+              "frame_id": {
+                "type": "string"
+              },
+              "time": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "source_id",
+              "frame_id",
+              "time"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 2
+        },
+        "status": {
+          "enum": [
+            "pending_review"
+          ]
+        },
+        "basis": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "group_id",
+        "frames",
+        "status",
+        "basis"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

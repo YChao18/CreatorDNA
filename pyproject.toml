@@ -4,24 +4,31 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "creator-dna"
-version = "0.1.0"
-description = "Creator style distillation and reusable Skill generation"
+version = "0.3.0"
+description = "Creator style Skills, quality workflow and local video asset analysis"
 requires-python = ">=3.10"
 dependencies = ["jsonschema>=4.18,<5", "PyYAML>=6,<7"]
 
 [project.optional-dependencies]
 asr = ["faster-whisper>=1.1,<2"]
+video = ["Pillow>=10,<13", "opencv-python-headless>=4.8,<5"]
 
 [project.scripts]
 creator-dna = "creator_dna.cli:main"
 
 [tool.setuptools]
-packages = ["creator_dna", "creator_dna.meta_skill"]
+packages = ["creator_dna", "creator_dna.meta_skill", "creator_dna.evaluation_skill", "creator_dna.optimization_skill", "creator_dna.director_skill"]
 
 [tool.setuptools.package-dir]
 creator_dna = "src/creator_dna"
 "creator_dna.meta_skill" = ".agents/skills/creator-dna-distiller"
+"creator_dna.evaluation_skill" = ".agents/skills/creator-dna-evaluator"
+"creator_dna.optimization_skill" = ".agents/skills/creator-dna-optimizer"
+"creator_dna.director_skill" = ".agents/skills/creator-dna-video-director"
 
 [tool.setuptools.package-data]
 creator_dna = ["schemas/*.json"]
 "creator_dna.meta_skill" = ["*.md", "references/*.md"]
+"creator_dna.evaluation_skill" = ["*.md", "references/*.json"]
+"creator_dna.optimization_skill" = ["*.md", "references/*.json"]
+"creator_dna.director_skill" = ["*.md", "references/*.json", "references/*.md"]

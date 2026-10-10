@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "minLength": 1,
+      "const": "2.0"
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1
+    },
+    "comment": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status_override": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "passed",
+        "failed",
+        "unable",
+        null
+      ]
+    },
+    "dimension_overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "score": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 5
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "score",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    }
+  },
+  "required": [
+    "schema_version",
+    "author",
+    "comment",
+    "status_override",
+    "dimension_overrides"
+  ],
+  "additionalProperties": false
+}

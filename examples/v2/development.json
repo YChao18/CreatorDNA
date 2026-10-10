@@ -1,0 +1,9 @@
+{
+  "schema_version": "2.0",
+  "id": "synthetic-development-v1",
+  "purpose": "development",
+  "cases": [
+    {"id": "d1", "topic": "为什么整理工作文件比购买新工具更有用", "category": "regular", "brief": "合成演示选题，只给日常建议，不编造研究或数据。", "human_reference": null},
+    {"id": "d2", "topic": "为什么给阳台植物找合适的位置比买漂亮花盆更重要", "category": "cross_topic", "brief": "合成演示选题，使用假设场景，不做具体养护承诺。", "human_reference": null}
+  ]
+}

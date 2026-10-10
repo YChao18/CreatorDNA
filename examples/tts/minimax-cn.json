@@ -1,0 +1,19 @@
+{
+  "provider": "minimax",
+  "model": "speech-2.8-hd",
+  "base_url": "https://api.minimax.cn",
+  "api_key_env": "MINIMAX_CN_API_KEY",
+  "speed": 1.0,
+  "emotion": "calm",
+  "format": "wav",
+  "sample_rate": 24000,
+  "segment_chars": 500,
+  "paragraph_pause": 0.35,
+  "request_timeout": 90,
+  "request_interval": 1.1,
+  "max_attempts": 2,
+  "retry_delay": 2.0,
+  "subtitles": true,
+  "ffmpeg": "ffmpeg",
+  "ffprobe": "ffprobe"
+}

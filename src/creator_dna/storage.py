@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import re
+import time
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -27,7 +28,16 @@ def write_text(path, text):
     temp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     try:
         temp.write_text(text, encoding="utf-8")
-        os.replace(temp, path)
+        # Windows readers briefly deny replacement while holding status.json.
+        # Keep the previous valid file visible; retry only this bounded OS race.
+        for attempt in range(7):
+            try:
+                os.replace(temp, path)
+                break
+            except PermissionError:
+                if os.name != "nt" or attempt == 6:
+                    raise
+                time.sleep(min(0.01 * 2**attempt, 0.1))
     finally:
         temp.unlink(missing_ok=True)
 
@@ -42,6 +52,15 @@ def digest_file(path):
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def native_path(path):
+    """Absolute Windows extended path for deeply nested task artifacts."""
+    path = Path(path).resolve()
+    value = str(path)
+    if os.name == "nt" and not value.startswith("\\\\?\\"):
+        value = "\\\\?\\UNC\\"+value[2:] if value.startswith("\\\\") else "\\\\?\\"+value
+    return Path(value)
 
 
 def validate_id(value):

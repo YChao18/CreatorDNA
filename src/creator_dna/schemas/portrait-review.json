@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "creator_id",
+    "library_run_id",
+    "candidates"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "3.0-04"
+    },
+    "creator_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "library_run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_id",
+          "source_sha256",
+          "approved",
+          "reviewer",
+          "evidence",
+          "front_facing",
+          "face_clear",
+          "mouth_unobstructed",
+          "moderate_head_motion",
+          "natural_action",
+          "quality_score",
+          "scene_id",
+          "action_key",
+          "start_pose",
+          "end_pose",
+          "safe_start",
+          "safe_end"
+        ],
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "approved": {
+            "type": "boolean"
+          },
+          "reviewer": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "front_facing": {
+            "type": "boolean"
+          },
+          "face_clear": {
+            "type": "boolean"
+          },
+          "mouth_unobstructed": {
+            "type": "boolean"
+          },
+          "moderate_head_motion": {
+            "type": "boolean"
+          },
+          "natural_action": {
+            "type": "boolean"
+          },
+          "quality_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "scene_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start_pose": {
+            "type": "string",
+            "minLength": 1
+          },
+          "end_pose": {
+            "type": "string",
+            "minLength": 1
+          },
+          "safe_start": {
+            "type": "number",
+            "minimum": 0
+          },
+          "safe_end": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

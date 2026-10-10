@@ -1,0 +1,521 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "3.0-02"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^task-[0-9a-f]{32}$"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "creator_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "materials": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "created_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "started_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "run_started_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "running",
+        "completed",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "current_stage": {
+      "enum": [
+        null,
+        "script",
+        "material_analysis",
+        "tts",
+        "lip_sync",
+        "composition",
+        "render",
+        "final_check"
+      ]
+    },
+    "current_object": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "elapsed_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "stage_elapsed_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "message": {
+      "type": "string"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "last_error": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "cancel_requested": {
+      "type": "boolean"
+    },
+    "worker_pid": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "runner_pid": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "progress": {
+      "type": "object",
+      "properties": {
+        "completed": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "total": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "percent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "estimated": {
+          "type": "boolean"
+        },
+        "basis": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "completed",
+        "total",
+        "unit",
+        "percent",
+        "estimated",
+        "basis"
+      ],
+      "additionalProperties": false
+    },
+    "overall_progress": {
+      "type": "object",
+      "properties": {
+        "completed": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "total": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "percent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "estimated": {
+          "type": "boolean"
+        },
+        "basis": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "completed",
+        "total",
+        "unit",
+        "percent",
+        "estimated",
+        "basis"
+      ],
+      "additionalProperties": false
+    },
+    "output_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "log_file": {
+      "type": "string"
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "enum": [
+              "script",
+              "material_analysis",
+              "tts",
+              "lip_sync",
+              "composition",
+              "render",
+              "final_check"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "attempts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "attempt": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "started_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "finished_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "status": {
+                  "enum": [
+                    "pending",
+                    "running",
+                    "completed",
+                    "failed",
+                    "cancelled"
+                  ]
+                },
+                "error": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "message",
+                        "retryable"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "directory": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "attempt",
+                "started_at",
+                "finished_at",
+                "status",
+                "error",
+                "directory"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "progress": {
+            "type": "object",
+            "properties": {
+              "completed": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "total": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "exclusiveMinimum": 0
+              },
+              "unit": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "percent": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 100
+              },
+              "estimated": {
+                "type": "boolean"
+              },
+              "basis": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "completed",
+              "total",
+              "unit",
+              "percent",
+              "estimated",
+              "basis"
+            ],
+            "additionalProperties": false
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "size": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "result": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "started_at",
+          "finished_at",
+          "attempt",
+          "attempts",
+          "progress",
+          "artifacts",
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "task_id",
+    "kind",
+    "creator_id",
+    "materials",
+    "created_at",
+    "started_at",
+    "finished_at",
+    "run_started_at",
+    "updated_at",
+    "status",
+    "current_stage",
+    "current_object",
+    "elapsed_seconds",
+    "stage_elapsed_seconds",
+    "message",
+    "error",
+    "last_error",
+    "cancel_requested",
+    "worker_pid",
+    "runner_pid",
+    "progress",
+    "overall_progress",
+    "output_files",
+    "log_file",
+    "stages"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CreatorDNA local task status"
+}

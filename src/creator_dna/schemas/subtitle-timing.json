@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "3.0-05",
+      "type": "string"
+    },
+    "audio_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "method": {
+      "type": "string",
+      "enum": [
+        "forced_alignment",
+        "asr",
+        "asr_reviewed",
+        "provider"
+      ]
+    },
+    "provenance": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "cue_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start": {
+            "type": "number",
+            "minimum": 0
+          },
+          "end": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "timing_basis": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "cue_id",
+          "start",
+          "end",
+          "text",
+          "timing_basis"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "audio_sha256",
+    "text",
+    "method",
+    "provenance",
+    "cues"
+  ],
+  "additionalProperties": false
+}

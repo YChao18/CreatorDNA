@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "3.0-05",
+      "type": "string"
+    },
+    "scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "cue_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "portrait",
+              "b_roll"
+            ]
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "preferred_asset_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asset_policy": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "selected",
+              "missing"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "layout": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "center",
+                  "left",
+                  "right"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "background_asset_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "transition": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "cut",
+                  "fade"
+                ]
+              },
+              "duration": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "type",
+              "duration"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "cue_ids",
+          "role",
+          "topics",
+          "keywords",
+          "preferred_asset_id",
+          "asset_policy",
+          "reason",
+          "layout",
+          "background_asset_id",
+          "transition"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "scenes"
+  ],
+  "additionalProperties": false
+}

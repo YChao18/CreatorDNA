@@ -1,0 +1,7 @@
+{
+  "levels": [
+    {"level": 1, "creator": "creator-001", "config": "workflow.json", "script_file": "level1.txt"},
+    {"level": 2, "creator": "creator-001", "config": "workflow.json", "script_file": "level2.txt"},
+    {"level": 3, "creator": "creator-001", "config": "workflow.json", "script_file": "level3.txt"}
+  ]
+}

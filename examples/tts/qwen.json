@@ -1,0 +1,19 @@
+{
+  "provider": "qwen",
+  "model": "qwen3-tts-vc-2026-01-22",
+  "base_url": "https://dashscope.aliyuncs.com/api/v1",
+  "api_key_env": "DASHSCOPE_API_KEY",
+  "speed": 1.0,
+  "emotion": null,
+  "format": "wav",
+  "sample_rate": 24000,
+  "segment_chars": 500,
+  "paragraph_pause": 0.35,
+  "request_timeout": 90,
+  "request_interval": 1.1,
+  "max_attempts": 2,
+  "retry_delay": 2.0,
+  "subtitles": false,
+  "ffmpeg": "ffmpeg",
+  "ffprobe": "ffprobe"
+}
