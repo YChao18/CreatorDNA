@@ -90,7 +90,35 @@ def validate_assets(registry):
             raise CreatorDNAError("人像素材必须声明相对于口播音频的 audio_offset；其他素材为 null。")
         if (a["kind"] == "portrait") != (a["audio_sha256"] is not None):
             raise CreatorDNAError("人像素材必须绑定对应主口播 PCM 音频的哈希；其他素材为 null。")
+        if a.get("portrait_provenance"):
+            if a["kind"] != "portrait":
+                raise CreatorDNAError("仅人像素材可携带人物来源记录。")
+            previous = 0
+            ranges = []
+            for segment in a["portrait_provenance"]["segments"]:
+                start,end,ss,se = (segment[k] for k in ("start","end","source_start","source_end"))
+                if (not all(math.isfinite(v) for v in (start,end,ss,se)) or abs(start-previous) > 1e-6
+                        or end <= start or se <= ss or abs((se-ss)-(end-start)) > 1e-6
+                        or (a["portrait_provenance"].get("reference_type","video") == "video" and
+                            any(max(ss,s) < min(se,e)-1e-6 for s,e in ranges))):
+                    raise CreatorDNAError("人像来源记录存在时间缺口、重复动作区间或时长不一致。")
+                ranges.append((ss,se))
+                previous=end
+            if abs(previous-a["duration"]) > .08:
+                raise CreatorDNAError("人像来源记录未覆盖整段素材。")
     return registry
+
+
+def check_portrait_sources(assets, *, require_provenance=False):
+    portraits = [a for a in assets if a["kind"] == "portrait"]
+    if require_provenance and any(not a.get("portrait_provenance") for a in portraits):
+        raise CreatorDNAError("复用人物必须提供单源来源记录；旧混合人物不能进入新视频。")
+    keys = set()
+    for a in portraits:
+        proof=a.get("portrait_provenance")
+        keys.add((proof["source_path"],proof["source_sha256"]) if proof else (a["path"],a["sha256"]))
+    if len(keys) > 1:
+        raise CreatorDNAError("同一条视频的人物必须来自同一个源文件，禁止跨素材混用。")
 
 
 def select_asset(assets, role, topics, duration, preferred=None, used=None, timeline_start=0, audio_sha256=None):

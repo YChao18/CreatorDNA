@@ -1,12 +1,60 @@
-# CreatorDNA V3.0-06
+# CreatorDNA V3.0
 
 把同一创作者的参考素材文件夹，蒸馏成独立可复用的口播风格 Skill，再用新选题生成原创口播稿。
 
 保留 V1.0 双层 Skill、V2.0 质量闭环与 V3.0-01 至 05 的素材、任务、TTS、口型和编排接口。V3.0-06 将这些模块接入统一任务，新增本地 FFmpeg 分段合成、原生进度、缓存复用、成品检查和 MP4 输出。文案流程沿用 Codex CLI，模型运行在独立 Python/CUDA 环境，凭证只从环境变量读取，无数据库服务或 Web 平台。
 
-V3.0-05 的 Video Style Profile、Video Director Skill、授权素材、真实时间字幕与可编辑时间轴继续复用。输出默认继承模板比例、方向和有理数帧率。当前可运行本地渲染工程链路；真实新 TTS + MuseTalk 的 Level 1–3 与人工质量评价仍受环境/凭据/人像审核条件阻碍，不能把合成工程样片视为风格、声音或口型验收。见 [V3.0-06 验收记录](docs/V3-06-VALIDATION.md) 与 [完整 V3 架构](docs/V3-ARCHITECTURE.md)。
+V3.0-05 的 Video Style Profile、Video Director Skill、授权素材、真实时间字幕与可编辑时间轴继续复用。输出默认继承模板比例、方向和有理数帧率。**当前状态（2026-10-12）：V3 开发完成，案例视频生成成功，未优化。** 本机已运行真实 TTS 音频、MuseTalk 动态人像口型、人物背景处理、字幕编排与 FFmpeg 成片链路；人工质量评价及完整 Level 1–3 验收仍未完成。阶段历史见 [V3.0-06 验收记录](docs/V3-06-VALIDATION.md)，模块划分见 [完整 V3 架构](docs/V3-ARCHITECTURE.md)。
+
+## 当前案例与完成范围
+
+2026-10-12 完成 creator-001 的“AI 工厂 / 老设备”动态人像案例。下表来自已保存任务、人物来源记录和成品验证文件；本次文档更新未重新调用 TTS 或口型模型。
+
+| 项目 | 实际结果 |
+| --- | --- |
+| 任务 | `task-564d83eeb90a40eb85fec2c2bb7cbdff`，状态 `completed` |
+| 本地案例文件 | `workspace/creators/creator-001/outputs/AI工厂_老设备_原片动态人物_20261012.mp4` |
+| 视频规格 | 32.28 秒，720×1280，9:16，25fps，807 帧，H.264 / AAC |
+| 人物来源 | `materials/creator-001/raw_portraits/rough_cut.mp4`；整片锁定同一源，4 段按连续源时间推进 |
+| 口型与身体 | MuseTalk 使用对应口播音频驱动嘴部；处理记录注明保留原身体/手势序列，未生成新身体动作 |
+| 人物处理 | 本地绿幕 alpha 处理，输出 800×1000 上半身透明工作素材，再合成为竖屏视频 |
+| 自动检查 | `automatic_checks=passed`、`decode_ok=true`、无报告的黑屏区间 |
+| 人工评价 | `human_review=pending`；尚未完成风格、声音、口型、手势和抠像效果验收 |
+
+任务证据位于 `workspace/tasks/task-564d83eeb90a40eb85fec2c2bb7cbdff/`：`status.json` 保存阶段状态，`stages/lip_sync/attempt-001/outputs/portrait-asset.json` 和 `portrait-clean.processing.json` 保存源锁、分段和处理记录，`stages/final_check/attempt-001/outputs/verification.json` 保存成品技术检查。案例副本 SHA-256 与任务成品一致：`16a2ca77831690804bc94f0dc8d25dba331be3d793eb3aba50dd2f480da8e2c5`。
+
+本案例复用此前真实合成的音频，TTS 阶段记录 `reused=true`，不是本轮重新付费合成。单个 32 秒案例也不等于 Level 1–3 顺序验收全部通过。“未优化”表示仍需结合实际观看结果完善声音、口型、动作匹配、人物边缘、字幕、B-roll 和整体风格；自动检查只确认技术条件。
+
+`materials/`、`workspace/`、模型环境及 `.env` 均不提交 Git。GitHub 保存代码、文档和配置模板；克隆仓库后需自行准备原片、授权、音色、模型与运行配置，案例 MP4 和私人运行记录仍保存在本地。
 
 ## V3.0-06：统一视频入口
+
+人像候选默认自动选择，不再要求人工审核确认。省略 `portrait.review` 或独立 `lipsync generate --review` 时，以实际采样中单人脸、足够时长的候选排序，并标记 automatic_candidate；不会伪造 reviewer、人工质量分、身份、嘴部无遮挡或姿态判断。授权、源哈希、重复区间/使用账本、模型逐帧定位和技术检查仍保留。需要保留已提供的人工筛选结果时可继续传 review；默认自动流程不会等待审核输入。成片效果评价与候选准入分开。
+
+本机已部署真实 MuseTalk 环境，配置为 `workspace/models/musetalk.json`，先完成 8 秒口型接入样片，后完成上面的 32.28 秒动态原片案例。安装版本、兼容修复和早期 GPU 指标见 [MuseTalk部署记录](docs/MUSETALK-SETUP.md)。该部署记录中的旧剪辑素材样片仅为历史接入证据；新视频必须使用 `raw_portraits` 动态原片。
+
+完整新文案视频需要准备匹配选题的标题/背景、为新 PCM 提供真实细时间字幕，并按需从动态原片口型结果中提取完整可见上半身。工作流可配置 `portrait_processing_command`（argv 列表，`{request}` 替换为请求文件）：请求包含 input/input_sha256/output/duration/frame_rate/segments/audio_sha256/source_lock/required_framing，处理器须在指定 output 写入可播放人像视频及同名 `.processing.json`，记录上半身构图、源锁和输入/输出哈希。透明背景可输出 ProRes4444 MOV；成功退出但缺文件、缺构图记录、输入被修改或时长不符时会停止。人物素材仍绑定整段主 PCM 哈希。背景和 B-roll 默认覆盖整屏，人物 layout.rect 只控制人物位置，防止标题/背景被裁成人物小窗。每个口型段最多允许一个正常 CFR 端点帧延展来对齐小数时长，不允许循环片段补长。
+
+### 每个素材文件夹的默认音色
+
+在项目根目录 `.env` 填写 `MINIMAX_CN_API_KEY=实际密钥`。CLI 启动时自动加载当前目录或上级目录中最近的 `.env`，已有进程环境变量优先；worker 继承环境，密钥不写入 JSON 或任务快照。`.env` 已被 Git 忽略。安装项目会同时安装 python-dotenv；不需要把密钥写到 TTS 配置。
+
+每个创作者绑定自己的只读素材文件夹和已有云音色。以下命令只查询云音色并保存本地绑定，不上传参考、不复刻、不合成音频：
+
+```powershell
+.\.venv\Scripts\python.exe -m creator_dna tts bind --workspace workspace --creator creator-001 --input materials/creator-001 --config examples/tts/minimax-cn.json --voice-id QianHao_GPT --authorize --cloud-processing --confirmation "填写真实音色使用授权、确认该文件夹对应此音色及 MiniMax 云端合成处理范围"
+.\.venv\Scripts\python.exe -m creator_dna tts binding --workspace workspace --creator creator-001
+```
+
+绑定保存在 `workspace/creators/<creator>/voice-assets/default.json`，包含实际素材路径、云端 voice_id、本地 voice_asset、Provider/端点/模型。原素材目录保持只读。其他素材文件夹使用自己的 creator ID 和音色重复绑定；同一个文件夹不能绑定到不同创作者。若当前 manifest 指向别的文件夹，先核对 creator/workspace，不会自动串用音色。
+
+后续合成可省略 `--voice`，自动使用该创作者的默认绑定。下面不带 `--run` 时只创建任务，带 `--run` 才产生真实合成调用：
+
+```powershell
+.\.venv\Scripts\python.exe -m creator_dna tts synthesize --workspace workspace --creator creator-001 --config examples/tts/minimax-cn.json --script-file my-script.txt
+```
+
+`video create` 的工作流保留 `tts` 配置，可省略 `voice_asset` 使用默认绑定；仍需按其他说明准备人像模型、授权、字幕及素材。任务创建时固定实际音色，之后改默认绑定不会改变已排队任务。未绑定、Provider/账户或模型不匹配时明确报错；显式 `--voice` 或工作流 `voice_asset` 仍可用于单次覆盖。换电脑需迁移私人 `.env` 和 workspace，在新素材位置重新绑定；云端音色需要同一账户且实际存在。文本 `generate` 不会自动变成收费 TTS。
 
 先激活项目运行环境。系统默认 Python 可能没有项目依赖；FFmpeg/FFprobe 必须可用，图片需要 Pillow。新主题需要已批准 Creator Skill、新声音需要已授权且已注册音色，真实口型需要独立 MuseTalk 环境与权重。
 
@@ -32,7 +80,7 @@ python -m creator_dna video clean --workspace workspace --task task-替换为真
 
 配置示例 [examples/video/workflow.json](examples/video/workflow.json) 是待填写模板，授权默认 false。顶层媒体/配置文件路径相对于工作流 JSON；引用的 TTS/口型配置保留各模块原有语义，MuseTalk 配置里的相对 repository/python 路径仍相对于执行目录，建议使用绝对路径。`profile` 与 `assets` 使用 V3.0-05 产物；`production_config` 可指定字幕安全区、布局和背景，默认继承 profile 的输出。`quality=true` 接入 V2 有限修订，未通过会在收费前停止；`max_revisions` 默认 2。`director=agent` 调用既有 Video Director，`local` 只做明确标记的字面标签匹配。
 
-`portrait_authorization` 明确授权 `selected_portraits_with_workflow_speech` 的本地处理范围，列出真实源 SHA256、创作者、确认意见与时间。工作流在新声音落盘后将该声明绑定实际 PCM 哈希并保存 `authorization.json`，不自动扩大其他授权。5–10 秒的口型分段继续使用原有候选审核、预留账本与去重复规则；素材不足会失败，不循环人像补长度。静态图可以用于已有 Provider 的图像口型接口，不能据此声称生成自然身体动作。
+`portrait_authorization` 明确授权 `selected_portraits_with_workflow_speech` 的本地处理范围，列出真实源 SHA256、创作者、确认意见与时间。工作流在新声音落盘后将该声明绑定实际 PCM 哈希并保存 `authorization.json`，不自动扩大其他授权。5–10 秒的口型分段继续使用候选检查、预留账本与去重复规则；单一原片不足会失败，不用第二份源、静态图或循环人像补长度。新视频必须遵守下方的动态原片与整片单源约束。
 
 已有声音可以配置 `speech`（V3.0-03 speech.json），省略 tts/voice_asset；已有对应人像可省略 lipsync/portrait/portrait_authorization，此时 assets 的 portrait 必须绑定同一 PCM 哈希。没有真实句/词时间戳时，配置 `timing` 标准文件，或 `alignment_command` 调用已有外部对齐器，例如 `["aligner.exe", "--request", "{request}", "--output", "{output}"]`。请求 JSON 提供 audio、audio_sha256、text、output；输出必须符合现有 subtitle-timing Schema。没有对齐器的千问长稿可能在 composition 阶段停止；不会按字数虚构时间。MiniMax 配置已开启服务商字幕，但仍以实际返回结果为准。
 
@@ -126,7 +174,35 @@ validate 检查 Schema、素材存在与哈希、实测媒体范围、授权、�
 .\.venv\Scripts\python.exe -X utf8 scripts/validate_v3_production.py --workspace $workspacePath --creator creator-001 --library $libraryPath --speech "<真实 speech.json>" --registry "<授权 assets.json>" --director codex
 ```
 
-需要更细时间戳时增加 `--timing`。本轮没有此真实新音频；保留的 9.32 秒参考原声样例、ASR 初始时间戳、编排与 ASS 仅用于工程检查，不能称为新 TTS 同步或生产视觉质量验收。普通 unittest 使用明确标注的合成素材，不调用付费 TTS/口型或真实 Agent。
+需要更细时间戳时增加 `--timing`。V3.0-05 开发阶段保留的 9.32 秒参考原声样例、ASR 初始时间戳、编排与 ASS 仅用于工程检查；当前真实案例见本文开头。普通 unittest 使用明确标注的合成素材，不调用付费 TTS/口型或真实 Agent。
+
+### 整片人物来源与上半身构图约束
+
+人像参考原片放在 `materials/<creator>/raw_portraits/`。本项目当前目录为 `materials/creator-001/raw_portraits/`，由用户手动加入未经剪辑、没有烧录字幕/标题、上半身清楚可见的动态视频。根目录的已剪辑视频可继续用于表达风格和视频风格分析，不再用于新视频的人像生成。整片仍统一一个源文件，保留原身体/手势动作并使用新音频驱动嘴部；不得用静态截图或循环动作替代。
+
+该目录为空、被删除或旧素材库未索引到原片时，人像选片会明确报错；完整工作流在 TTS 前检查来源，不回退到旧剪辑片。旧截图/剪辑片生成的人像也不能在新工作流中直接复用。目录约定约束来源，不等于已经自动证明素材无烧录文字、构图和输出质量通过；加入原片后仍按实际采样/执行结果检查，生成前不增加人工候选审批门槛。
+
+加入原片后，重新分析专用目录，把返回的新 `library.json` 填入工作流的 `portrait.library`（已有 style profile、音色绑定和文案素材不用迁移）：
+
+```powershell
+.\.venv\Scripts\python.exe -m creator_dna analyze-video --input materials/creator-001/raw_portraits --workspace workspace --creator creator-001
+```
+
+不要沿用此前指向剪辑素材的 `portrait.source_id` / `portrait.candidate`；省略以自动选择新原片，或换成新原片库中实际的 ID。原片仍留在此目录，分析、抠像、口型、字幕与输出写入 workspace。小范围新身体动作仅在有真实可用的动作生成能力时使用并记录，目前 MuseTalk 本身只生成口型，不生成新手势。
+
+4K 原片可显式配置 `portrait.reference_max_dimension=1920`，或在 `lipsync generate` 使用 `--reference-max-dimension 1920`，只将模型工作副本等比缩到最长边 1920；原片、来源哈希和源时间区间不变。默认不缩放，可设置范围为 512–8192。人物仍完整放入画面，不裁成头像；最终视频尺寸继续由 style profile / production_config 决定。
+
+整片 `video create` 在推理前保存 `checkpoints/portrait-plan.json`：一个源文件路径、SHA256、各段源区间和音频边界。恢复逐段比对原计划及真实生成清单，旧任务若没有单源计划须创建新任务。已完成视频保留，不覆盖。复用人像的素材清单必须包含 `portrait_provenance`；缺失记录的旧合并视频不会自动标记为单源合格。
+
+人像合成固定使用 `contain`、无二次裁切；透明留白保留新背景。直接编辑时间轴裁人像或混入另一个来源会被校验拒绝。完整上半身必须在原片中可见，模型只改嘴部，不生成新身体动作；源片存在换衣服、其他人物、遮挡或缺失身体的区间不能靠同文件规则自动保证效果。
+
+`portrait_processing_command` 可调用本地上半身处理器，命令参数用 `{request}` 接收输入。新内置桥接脚本 `src/creator_dna/portrait_matting_runner.py` 在独立模型 Python 中执行 RVM：
+
+```json
+["<模型环境 python.exe>", "<项目>/src/creator_dna/portrait_matting_runner.py", "<workspace>/processor.json", "{request}"]
+```
+
+`processor.json` 填 `repository`（RVM checkout 与 rvm_mobilenetv3.pth）、`source_sha256`（选定原片）、`upper_body_roi`（原视频像素坐标 x1,y1,x2,y2）、`face_anchor`（实际人脸 x,y,w,h）与可选 `downsample_ratio`。ROI 需包含头、肩、躯干至腰部和画面中可见手势，不能用脸颈裁切躲字幕。原片必须无烧录字幕/标题；文字、遮挡或缺失上半身导致素材不适合时停止并补充原片。处理器必须输出同名 `.processing.json`，记录 upper_body、源锁、输入和输出哈希；缺记录、脸颈旧处理器或失败返回不发布人像资产。构图记录和技术解码不等于口型感知/抠像质量通过。
 
 ## V3.0-04：新口播音频 → 短人像口型视频
 
@@ -137,39 +213,37 @@ validate 检查 Schema、素材存在与哈希、实测媒体范围、授权、�
 .\.venv\Scripts\python.exe -m creator_dna lipsync doctor --config examples/lipsync/musetalk.json
 ```
 
-先按 [实现与后端选择](docs/V3-04-DESIGN.md)准备独立 MuseTalk checkout、Python/CUDA 环境和模型权重；修改 `examples/lipsync/musetalk.json` 中的 repository/python 路径。doctor 检查真实 CUDA kernel、MMLab 扩展和文件，ready 不是口型质量通过证明。本机 RTX 5070 约 12 GB；当前缺模型环境/权重，用户确认新 TTS 音频尚未生成，因此 [本次验证报告](docs/V3-04-VALIDATION.md)明确未完成真实样片。
+先按 [实现与后端选择](docs/V3-04-DESIGN.md)准备独立 MuseTalk checkout、Python/CUDA 环境和模型权重；修改 `examples/lipsync/musetalk.json` 中的 repository/python 路径。doctor 检查真实 CUDA kernel、MMLab 扩展和文件，ready 不是口型质量通过证明。本机 RTX 5070 约 12 GB，已完成环境部署和真实推理；[阶段验证报告](docs/V3-04-VALIDATION.md)保留开发阶段的历史状态，当前进展见本文案例及 [部署记录](docs/MUSETALK-SETUP.md)。
 
-使用已有 V3.0-01 的清单（没有真实清单时先运行 analyze-video）：
+使用对 `materials/creator-001/raw_portraits/` 运行 analyze-video 得到的人像清单；将下面的 workspace 改为该清单实际使用的目录，不使用旧剪辑视频的分析库：
 
 ```powershell
 $workspacePath = "workspace/v3-04"
 $creatorRoot = Join-Path $workspacePath "creators/creator-001"
 $pointer = Get-Content (Join-Path $creatorRoot "video-assets/latest.json") -Raw | ConvertFrom-Json
 $libraryPath = Join-Path $creatorRoot $pointer.library
-$reviewPath = Join-Path $workspacePath "portrait-review.json"
 .\.venv\Scripts\python.exe -m creator_dna lipsync rank --workspace $workspacePath --creator creator-001 --library $libraryPath
-.\.venv\Scripts\python.exe -m creator_dna lipsync review-template --workspace $workspacePath --creator creator-001 --library $libraryPath --destination $reviewPath
 ```
 
-播放候选原片后编辑审核 JSON：五个适合度 checks 为 true、approved=true，填写 reviewer、evidence、quality_score(0–100)、scene_id、action_key、start_pose/end_pose、安全区间。源 hash 和 library_run_id 不可随意改变。action_key 表示可能出现明显重复的动作组，不能为了绕过重复检查将同一动作标成不同组。排序代理不识别身份、口部遮挡或手势语义；模板默认不批准。烧录字幕/背景主题会随源片保留，需核验与新文案的兼容性。
+默认自动筛选有单人脸采样且时长足够的候选，不需要填写审核文件。自动结果保留 quality_score=null、review=null、姿态 unknown，不把采样指标当作身份、嘴部无遮挡或动作语义判断；模型逐帧定位失败会停止。已有人工筛选记录仍可通过可选 --review 导入；review-template 只用于这条可选路径。自动口型模型不会擦除源文字，因此必须准备无烧录字幕/标题的动态原片。
 
 ```powershell
-.\.venv\Scripts\python.exe -m creator_dna lipsync plan --workspace $workspacePath --creator creator-001 --library $libraryPath --review $reviewPath --durations 6 8 --timeline new-topic-001
+.\.venv\Scripts\python.exe -m creator_dna lipsync plan --workspace $workspacePath --creator creator-001 --library $libraryPath --durations 6 8 --timeline new-topic-001
 ```
 
-plan 不生成视频、不占用候选；实际任务运行时再次核验并预留。默认同一 timeline 中片段/重叠源区间/相同动作最多用一次；可设置 --max-uses，但仍检查 --cooldown（默认 30 秒）。切镜不匹配返回 b_roll_hooks，供后续编排遮挡。素材不足直接失败，不循环、倒放或随机拼接。
+plan 不生成视频、不占用候选；实际任务运行时再次核验并预留。同一 timeline 只能锁定一个源文件；单源不足报 InsufficientSingleSourcePortraitMaterial，不能用第二个文件补时长。`lipsync plan/generate --source-id <library 中真实 source_id>` 可显式指定；完整工作流对应 `portrait.source_id`。自动测量中同一镜头内连续、合格的候选可形成 `-window` 候选，按源时间顺序分段、不循环；同文件不自动证明同身份/服装，原片仍需检查。默认同一 timeline 中片段/重叠源区间/相同动作最多用一次；可设置 --max-uses，但仍检查 --cooldown（默认 30 秒）。切镜不匹配返回 b_roll_hooks，供后续编排遮挡。素材不足直接失败，不循环、倒放或随机拼接。
 
 当 V3.0-03 生成新音频后，创建与具体源视频和音频 SHA256 绑定的**本地**授权。以下路径须换成真实文件：
 
 ```powershell
 $ttsManifest = "workspace/你的TTS输出目录/speech.json"
-$portraitSource = "materials/creator-001/已审核的原视频.mp4"
+$portraitSource = "materials/creator-001/raw_portraits/已授权的动态原片.mp4"
 $consentPath = Join-Path $workspacePath "portrait-consent.json"
 .\.venv\Scripts\python.exe -m creator_dna lipsync consent --workspace $workspacePath --creator creator-001 --source $portraitSource --tts-manifest $ttsManifest --destination $consentPath --authorize --confirmation "已获创作者授权：人像重定向与新音频使用，仅限本地"
-.\.venv\Scripts\python.exe -m creator_dna lipsync generate --workspace $workspacePath --creator creator-001 --config examples/lipsync/musetalk.json --library $libraryPath --review $reviewPath --tts-manifest $ttsManifest --consent $consentPath --duration 8 --timeline new-topic-001 --run
+.\.venv\Scripts\python.exe -m creator_dna lipsync generate --workspace $workspacePath --creator creator-001 --config examples/lipsync/musetalk.json --library $libraryPath --tts-manifest $ttsManifest --consent $consentPath --duration 8 --timeline new-topic-001 --run
 ```
 
-也可用 `--audio 新口播.wav` 代替 `--tts-manifest`；`--audio-start` 选择新音频中的起点。`--candidate` 固定候选；多候选授权可在 consent 的 --source 后给多个源路径。每段只允许 5–10 秒，并要求候选多留 0.2 秒源帧余量。用 --image 代替 library/review 可测试授权参考图的口型，但仅为静态图口型，不生成身体动作或宣称完成方案 B 的动作驱动。
+也可用 `--audio 新口播.wav` 代替 `--tts-manifest`；`--audio-start` 选择新音频中的起点。`--candidate` 固定候选；多候选授权可在 consent 的 --source 后给多个源路径，实际整片仍只能使用一个源文件。每段只允许 5–10 秒，并要求候选多留 0.2 秒源帧余量。底层保留图像口型接口，但本项目新视频禁用静态截图替代；已绑定原片目录的创作者会拒绝图像参考。
 
 generate 不带 --run 只创建任务；执行使用现有任务引擎：
 
@@ -397,12 +471,14 @@ python -m venv .venv
 
 ### 1. 输入素材文件夹
 
-项目已建好用于后续放置真实视频的目录：
+素材目录按创作者组织，风格参考与人像原片分开放置：
 
 ```text
 materials/
-  creator-001/     第一位创作者的一组参考视频（当前为空）
-  creator-002/     第二位创作者的一组参考视频（当前为空）
+  creator-001/             第一位创作者的风格参考视频、转写稿
+    raw_portraits/         用户手动加入的无字幕、未剪辑动态人像原片
+  creator-002/             第二位创作者的风格参考视频、转写稿
+    raw_portraits/         第二位创作者的人像原片
 ```
 
 可继续新增其他子文件夹。每个子文件夹只放同一创作者的参考素材，运行时选择对应子文件夹，不把多个创作者的父文件夹一起蒸馏。例如放好素材后运行：
@@ -482,7 +558,7 @@ JSON 转写稿示例（start/end 均为秒，或同时为 null）：
 
 ## 架构与数据
 
-采用单仓库、模块化单体；当前模块全部有实际用途，暂不搭建未来视频模块的空框架。
+采用单仓库、模块化单体；确定性文件、媒体、存储与任务模块和 AI 分析、评估模块分开，ASR、Agent、TTS 和口型 Provider 保留显式接口。
 
 | 模块 | 文件 | 职责 |
 | --- | --- | --- |
@@ -496,6 +572,11 @@ JSON 转写稿示例（start/end 均为秒，或同时为 null）：
 | Contracts | contracts.py、schemas/ | 统一可扩展 JSON 数据协议 |
 | Evaluation | evaluation.py | 引文校验、配置阈值、独立评分组和报告 |
 | Quality Workflow | quality.py | 有限修订、人工反馈、固定集批量与版本对照 |
+| Task Manager | tasks.py、task_worker.py、task_progress.py | 分阶段执行、进度、取消、超时和恢复 |
+| TTS / Voice Assets | tts_workflow.py、tts_providers.py、voice_assets.py | 授权音色、创作者默认绑定、真实音频及收费请求记录 |
+| Video Assets | video_assets.py、video_style.py、portrait_sources.py | 视频测量、风格 profile 和人像原片来源边界 |
+| Lip Sync / Portrait | lip_sync_workflow.py、musetalk_runner.py、portrait.py | 独立口型模型、整片源锁与使用账本 |
+| Production / Render | production.py、subtitles.py、timeline.py、render.py、video_workflow.py | 字幕、场景编排、统一视频任务和成品检查 |
 
 ```text
 workspace/creators/creator-a/
@@ -526,7 +607,9 @@ workspace/creators/creator-a/
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-测试覆盖 V1.0 回归及 V2.0 的评估合同、引文、次数上限、中断、反馈关联、部分失败、版本对照、发布和回滚。AI 合同测试使用明确标记的假适配器，不消耗真实 AI 调用，不能证明真实风格质量。工程检查保证证据引用存在，不保证模型解释正确；真实质量仍需人工盲评。
+2026-10-12 使用项目 `.venv` 执行上述命令：**187 项测试，184 项通过、3 项真实服务集成测试跳过，0 失败**。默认回归不启用真实 TTS、口型或整片服务测试；本文案例来自已保存的独立真实任务。
+
+测试覆盖 V1.0 回归、V2.0 的评估合同与版本闭环，以及 V3 的任务、音色绑定、字幕、口型接口、原片来源、单源锁定、上半身构图、编排、渲染和恢复。AI 合同测试使用明确标记的假适配器，不消耗真实 AI 调用，不能证明真实风格质量。工程检查保证证据引用存在，不保证模型解释正确；真实质量仍需人工盲评。
 
 `examples/materials/` 是为演示命令制作的合成转写样本，不是真实创作者素材。它们可用于从文件夹到文案的模型接入测试：
 

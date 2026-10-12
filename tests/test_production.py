@@ -235,6 +235,10 @@ class ProductionMediaTests(unittest.TestCase):
         self.assertEqual(len(t["background"]),3)
         self.assertEqual(t["foreground"][0]["layout"]["fit"],"cover")
         self.assertEqual(t["foreground"][0]["layout"]["anchor"],"right")
+        full={"x":0,"y":0,"width":1,"height":1}
+        self.assertEqual(t["foreground"][0]["layout"]["rect"],config["layout"]["rect"])
+        self.assertEqual(t["foreground"][1]["layout"]["rect"],full)
+        self.assertTrue(all(c["layout"]["rect"]==full for c in t["background"]))
 
     def test_missing_assets_persist_draft_without_claiming_ready(self):
         empty=self.root/"empty.json"

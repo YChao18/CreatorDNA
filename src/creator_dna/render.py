@@ -83,7 +83,7 @@ def frame_segments(timeline, seconds):
     return result
 
 
-def geometry(layout, output):
+def geometry(layout, output, preserve_alpha=False):
     w, h = output["width"], output["height"]
     r = layout["rect"]
     # Integer rectangles stay inside canvas; scale preserves display aspect.
@@ -99,7 +99,11 @@ def geometry(layout, output):
     if layout["fit"] == "cover":
         filters.extend([f"scale={rw}:{rh}:force_original_aspect_ratio=increase", f"crop={rw}:{rh}:x={offset}:y=(ih-oh)/2"])
     else:
-        filters.extend([f"scale={rw}:{rh}:force_original_aspect_ratio=decrease", f"pad={rw}:{rh}:x={pad}:y=(oh-ih)/2:color={layout['pad_color']}"])
+        color = "0x00000000" if preserve_alpha else layout["pad_color"]
+        # Force RGBA after scaling too: otherwise overlay can negotiate 4:2:0
+        # upstream and round an odd inset width below the scaled input width.
+        filters.extend([f"scale={rw}:{rh}:force_original_aspect_ratio=decrease", "format=rgba",
+                        f"pad={rw}:{rh}:x={pad}:y=(oh-ih)/2:color={color}"])
     return filters, x, y
 
 
@@ -125,7 +129,7 @@ def render_stage(ctx, params):
     for index, segment in enumerate(segments):
         ctx.check_cancelled()
         cues = [c for c in timeline["subtitles"]["cues"] if c["end"] > segment["start"] and c["start"] < segment["start"]+segment["duration"]]
-        identity = {"renderer": "3.0-06.2", "segment": segment, "output": output, "settings": {k:v for k,v in cfg.items() if k != "audio_mix"},
+        identity = {"renderer": "3.0-06.4", "segment": segment, "output": output, "settings": {k:v for k,v in cfg.items() if k != "audio_mix"},
                     "assets": [assets[c["asset_id"]]["sha256"] for c in (segment["background"], segment["foreground"]) if c],
                     "cues": cues, "style": timeline["subtitles"]["style"]}
         key = hashlib.sha256(json.dumps(identity, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
@@ -161,7 +165,7 @@ def render_stage(ctx, params):
                     else:
                         offset = max(clip["source_start"], clip["source_start"]+segment["start"]-clip["start"])
                         args += ["-ss", str(offset), "-i", str(source)]
-                    geo, x, y = geometry(clip["layout"], output)
+                    geo, x, y = geometry(clip["layout"], output, preserve_alpha=clip["role"] == "portrait" and bool(a.get("portrait_provenance")))
                     # CFR endpoint resampling may need one final frame after fps
                     # rounding; the validated source interval still owns coverage.
                     geo = ["setpts=PTS-STARTPTS", f"fps={fps}", f"tpad=stop_mode=clone:stop_duration={1/float(Fraction(fps))}", *geo]

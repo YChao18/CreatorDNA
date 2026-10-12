@@ -11,6 +11,7 @@ from pathlib import Path
 from .contracts import validate
 from .lip_sync import LipSyncError, LipSyncRequest, config, duration_value, make_provider, require_consent
 from .portrait import GUARD_SECONDS, UsageLedger, load_library, plan, rank_candidates
+from .portrait_sources import creator_raw_folder, allowed_video
 from .storage import Workspace, digest_file, now, read_json, write_json, write_text
 from .task_executors import run_ffmpeg
 from .tasks import TaskManager, stage
@@ -75,11 +76,13 @@ def gpu_lease(workspace, gpu_id):
 
 
 def prepare_task(workspace, creator, settings, *, audio=None, tts_manifest=None,
-                library=None, review=None, candidate=None, image=None, consent,
+                library=None, review=None, candidate=None, source_id=None, image=None, consent, planned_selection=None,
                 duration=8, audio_start=0, timeline="default", position=0,
-                cooldown=30, max_uses=1, timeout=1800, max_attempts=1):
+                cooldown=30, max_uses=1, timeout=1800, max_attempts=1, reference_max_dimension=None):
     settings = config(settings)
     duration = duration_value(duration)
+    if reference_max_dimension is not None and (type(reference_max_dimension) is not int or not 512 <= reference_max_dimension <= 8192):
+        raise LipSyncError("InvalidReferenceMaxDimension")
     if isinstance(audio_start, bool) or not isinstance(audio_start, (float, int)) or not math.isfinite(audio_start) or audio_start < 0:
         raise LipSyncError("InvalidAudioStart")
     provider = make_provider(settings)
@@ -89,9 +92,12 @@ def prepare_task(workspace, creator, settings, *, audio=None, tts_manifest=None,
     if len(streams) != 1 or audio_start+duration > float(audio_info["format"]["duration"])+.001:
         raise LipSyncError("AudioTooShortOrAmbiguous")
     selection = None
+    reference_folder = creator_raw_folder(workspace, creator)
+    if image and reference_folder is not None:
+        raise LipSyncError(f"RawDynamicPortraitVideoRequired: 请使用 {reference_folder} 内的无字幕动态原片，不使用静态截图。")
     options = {"timeline": timeline, "position": position, "cooldown": cooldown, "max_uses": max_uses}
     if image:
-        if library or review or candidate:
+        if library or review or candidate or source_id or planned_selection:
             raise LipSyncError("ConflictingReferenceInputs")
         reference, reference_type = Path(image).resolve(), "image"
         info = probe(reference, settings)
@@ -100,24 +106,39 @@ def prepare_task(workspace, creator, settings, *, audio=None, tts_manifest=None,
             raise LipSyncError("InvalidReferenceImage")
         width, height = video["width"], video["height"]
     else:
-        if not library or not review:
-            raise LipSyncError("LibraryAndManualReviewRequired")
+        if not library:
+            raise LipSyncError("VideoLibraryRequired")
         data = load_library(library, creator)
         from .input import validate_input_folder
         validate_input_folder(data["input_folder"], workspace.root)
-        ranked = rank_candidates(data, read_json(review))
-        selection = plan(ranked, [duration], UsageLedger(workspace, creator).read(),
-                         candidate=candidate, **options)["clips"][0]
+        ranked = rank_candidates(data, read_json(review) if review else None, reference_folder=reference_folder)
+        if planned_selection is None:
+            selection = plan(ranked, [duration], UsageLedger(workspace, creator).read(),
+                             candidate=candidate, source_id=source_id, **options)["clips"][0]
+        else:
+            selection = planned_selection
+            c, u = selection["candidate"], selection["usage"]
+            known = next((r for r in ranked if r["candidate_id"] == c["candidate_id"]), None)
+            if (known != c or not c["eligible"] or (source_id and c["source_id"] != source_id)
+                    or (candidate and c["candidate_id"] != candidate) or u["timeline"] != timeline
+                    or u["position"] != position or u["duration"] != duration
+                    or u["source_sha256"] != c["source_sha256"]
+                    or not c["start"] <= u["source_start"] < u["source_end"] <= c["end"]+1e-6
+                    or abs(u["source_end"]-u["source_start"]-duration-GUARD_SECONDS) > 1e-6):
+                raise LipSyncError("PortraitPlanChanged")
         c = selection["candidate"]
         reference, reference_type = Path(c["source_path"]).resolve(), "video"
         if digest_file(reference) != c["source_sha256"]:
             raise LipSyncError("SourceChanged")
         width, height = c["display_width"], c["display_height"]
+    original_geometry = {"width": width, "height": height}
+    factor = min(1,reference_max_dimension/max(width,height)) if reference_max_dimension else 1
+    width,height = max(2,round(width*factor/2)*2),max(2,round(height*factor/2)*2)
     source_hash, sound_hash = digest_file(reference), digest_file(sound)
     consent_data = read_json(consent) if not isinstance(consent, dict) else consent
     require_consent(consent_data, creator, source_hash, sound_hash)
     snapshots = [{"path": str(p.resolve()), "sha256": digest_file(p)} for p in
-                 [reference, sound] + ([Path(library), Path(review)] if library else []) +
+                 [reference, sound] + ([Path(library)] if library else []) + ([Path(review)] if review else []) +
                  ([Path(tts_manifest)] if tts_manifest else [])]
     # No model setup/upload is performed by task creation. Missing prerequisites
     # produce a durable failed lip_sync task when run, not a mock video.
@@ -125,6 +146,8 @@ def prepare_task(workspace, creator, settings, *, audio=None, tts_manifest=None,
               "reference": str(reference), "reference_type": reference_type,
               "audio": str(sound), "audio_start": audio_start, "duration": duration,
               "width": max(2, round(width/2)*2), "height": max(2, round(height/2)*2),
+              "reference_processing": {"source_geometry": original_geometry, "max_dimension": reference_max_dimension,
+                                       "aspect_preserved": True, "source_unchanged": True},
               "selection": selection, "library": str(Path(library).resolve()) if library else None,
               "review": str(Path(review).resolve()) if review else None, "reuse": options,
               "consent": consent_data, "snapshots": snapshots}
@@ -143,6 +166,9 @@ def generate_stage(ctx, params, provider=None):
     settings = config(params["settings"])
     verify_sources(params["snapshots"])
     reference, sound = Path(params["reference"]), Path(params["audio"])
+    reference_folder = creator_raw_folder(Workspace(params["workspace"]), ctx.creator_id)
+    if reference_folder is not None and (params["reference_type"] != "video" or not allowed_video(reference, reference_folder)):
+        raise LipSyncError(f"RawDynamicPortraitVideoRequired: 人物参考必须来自 {reference_folder} 内的动态原片。")
     require_consent(params["consent"], ctx.creator_id, digest_file(reference), digest_file(sound))
     provider = provider or make_provider(settings)
     ctx.report("检查真实本地后端环境与模型权重", basis="local prerequisite check; total unknown")
@@ -158,7 +184,8 @@ def generate_stage(ctx, params, provider=None):
     write_json(checkpoint, fingerprint)
     ledger = UsageLedger(Workspace(params["workspace"]), ctx.creator_id)
     if params["selection"]:
-        ranked = rank_candidates(load_library(params["library"], ctx.creator_id), read_json(params["review"]))
+        ranked = rank_candidates(load_library(params["library"], ctx.creator_id), read_json(params["review"]) if params["review"] else None,
+                                 reference_folder=reference_folder)
         ledger.reserve(ctx.task_id, params["selection"], ranked, params["reuse"])
     try:
         ctx.check_cancelled()

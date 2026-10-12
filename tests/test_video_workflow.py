@@ -1,5 +1,7 @@
 """Synthetic adapter tests, including real FFmpeg. Not real voice/face proof."""
 import shutil
+import math
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -27,7 +29,7 @@ def context(root, ws, stage_id, attempt=1, inputs=None):
 
 class SyntheticPortraitProvider:
     name="synthetic-test-pattern-NOT-A-MODEL"
-    def __init__(self): self.calls=0; self.fail_on=2
+    def __init__(self): self.calls=0; self.fail_on=2; self.floor_endpoint=False
     def environment(self): return {"ready":True,"synthetic_only":True}
     def fingerprint(self): return {"synthetic_only":True}
     def generate(self, request, ctx):
@@ -35,8 +37,9 @@ class SyntheticPortraitProvider:
         if self.calls==self.fail_on:
             raise StageFailure("SYNTHETIC SECOND SEGMENT FAILURE","SyntheticFailure")
         path=ctx.output_dir/"synthetic-pattern.mp4"
+        duration=math.floor(request.duration*25)/25 if self.floor_endpoint else request.duration
         run_ffmpeg(ctx,["ffmpeg","-v","error","-n","-f","lavfi","-i",
-            f"testsrc2=s={request.width}x{request.height}:r=25:d={request.duration}",
+            f"testsrc2=s={request.width}x{request.height}:r=25:d={duration}",
             "-c:v","libx264","-threads","2",str(path)],request.duration)
         return LipSyncResult(path,{"synthetic_only":True,"source_looped":False,"dropped_frames":0})
 
@@ -77,6 +80,52 @@ class VideoStageTests(unittest.TestCase):
         a=read_json(second.output_dir/"portrait-asset.json")
         self.assertAlmostEqual(a["duration"],15,delta=.04)
         self.assertEqual(a["audio_sha256"],digest_file(self.f["audio"]))
+        locked=read_json(second.attempt_dir.parent/"checkpoints/portrait-plan.json")
+        self.assertEqual(a["portrait_provenance"]["source_sha256"],locked["source_lock"]["source_sha256"])
+        # A forged cached receipt from another person must fail before reuse.
+        receipt_path=second.attempt_dir.parent/"checkpoints/segment-0000/complete.json"
+        receipt=read_json(receipt_path)
+        record=next(r for r in receipt["artifacts"] if Path(r["path"]).name=="portrait.json")
+        manifest=read_json(record["path"]);manifest["source_sha256"]="b"*64
+        write_json(record["path"],manifest);record["sha256"]=digest_file(record["path"])
+        write_json(receipt_path,receipt)
+        third=context(self.root,self.ws,"lip_sync",3,inputs)
+        with patch("creator_dna.lip_sync.make_provider",return_value=provider):
+            with self.assertRaisesRegex(Exception,"整片锁定计划"):
+                lip_stage(third,params)
+        self.assertEqual(provider.calls,3)
+
+    def test_fractional_backend_endpoint_keeps_audio_cut_positions(self):
+        cfg={"speech":str(self.f["speech"]),"lipsync":{"repository":str(self.root/"no-real-model")},
+             "portrait":{"image":str(self.f["video"].parent/"blue.png")},
+             "portrait_authorization":{"authorized":True,"source_sha256":[digest_file(self.f["video"].parent/"blue.png")],
+                    "confirmation":"SYNTHETIC FIXTURE ONLY","confirmed_at":"synthetic"},
+             "render":{"ffmpeg":"ffmpeg","ffprobe":"ffprobe"}}
+        inputs={"tts":{"result":{"reused":True,"speech":str(self.f["speech"])},"artifacts":[]}}
+        provider=SyntheticPortraitProvider();provider.fail_on=-1;provider.floor_endpoint=True
+        ctx=context(self.root,self.ws,"lip_sync",inputs=inputs)
+        def injected(c,p): return generate_stage(c,p,provider)
+        with patch("creator_dna.video_workflow.generate_stage",side_effect=injected),patch("creator_dna.lip_sync.make_provider",return_value=provider):
+            lip_stage(ctx,{"workspace":str(self.ws.root),"config":cfg})
+        audit=read_json(ctx.output_dir/"portrait-segments.json")
+        self.assertTrue(all(x["cfr_endpoint_extension_frames"] in {0,1} for x in audit))
+        self.assertAlmostEqual(read_json(ctx.output_dir/"portrait-asset.json")["duration"],15,delta=.001)
+
+    def test_processor_success_without_output_never_publishes_portrait_asset(self):
+        cfg={"speech":str(self.f["speech"]),"lipsync":{"repository":str(self.root/"no-real-model")},
+             "portrait":{"image":str(self.f["video"].parent/"blue.png")},
+             "portrait_authorization":{"authorized":True,"source_sha256":[digest_file(self.f["video"].parent/"blue.png")],
+                    "confirmation":"SYNTHETIC FIXTURE ONLY","confirmed_at":"synthetic"},
+             "portrait_processing_command":[sys.executable,"-c","pass","{request}"],
+             "render":{"ffmpeg":"ffmpeg","ffprobe":"ffprobe"}}
+        inputs={"tts":{"result":{"reused":True,"speech":str(self.f["speech"])},"artifacts":[]}}
+        provider=SyntheticPortraitProvider();provider.fail_on=-1
+        ctx=context(self.root,self.ws,"lip_sync",inputs=inputs)
+        def injected(c,p): return generate_stage(c,p,provider)
+        with patch("creator_dna.video_workflow.generate_stage",side_effect=injected),patch("creator_dna.lip_sync.make_provider",return_value=provider):
+            with self.assertRaisesRegex(StageFailure,"人物处理失败"):
+                lip_stage(ctx,{"workspace":str(self.ws.root),"config":cfg})
+        self.assertFalse((ctx.output_dir/"portrait-asset.json").exists())
 
     def test_new_topic_extracts_body_only_and_pins_skill(self):
         source=self.root/"text-reference"

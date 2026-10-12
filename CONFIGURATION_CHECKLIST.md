@@ -2,6 +2,10 @@
 
 检查日期：2026-10-10（Asia/Shanghai），项目包 0.3.0，实际工作树。与 [V3_AUDIT_REPORT.md](V3_AUDIT_REPORT.md) 配套。状态只描述本机本轮事实；“静态通过”不等于“真实接口通过”。
 
+后续进展（2026-10-10）：MiniMax 国内 Key 已填写并通过真实音色查询；`materials/creator-001` 已绑定 `QianHao_GPT`。CLI 现在自动加载最近的项目 `.env`，`tts synthesize` 省略 `--voice`、`video create` 省略 `voice_asset` 时使用该创作者的默认绑定。配置保存在 `workspace/creators/creator-001/voice-assets/default.json`，新命令与其他文件夹绑定步骤见 [README.md](README.md)。下面的表格/步骤保留原审计快照，其中“未加载 .env/该创作者音色缺失”的结论已由这次配置更新替代；真实合成与视频质量仍未验收。
+
+新增进展：真实QianHao_GPT合成已验证；MuseTalk独立环境/权重已部署、ready=true，并生成通过技术检查的8秒真人口型样片。按用户新指令，候选默认自动选择，不再需要人工审核确认。后续使用 `workspace/models/musetalk.json`，详见 [部署与样片记录](docs/MUSETALK-SETUP.md)；下表原“MuseTalk未安装/人像审核为阻塞”的快照已过时。完整长视频、字幕细化、视觉配置仍未完成。
+
 ## 1. 配置/验证总表
 
 | 模块 | 配置项 | 用途 | 当前状态 | 需要的操作 | 优先级 |

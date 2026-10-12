@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .contracts import validate
 from .errors import CreatorDNAError
-from .production_assets import USABLE_RIGHTS, probe, validate_assets
+from .production_assets import USABLE_RIGHTS, probe, validate_assets, check_portrait_sources
 from .storage import digest_file
 from .subtitles import check_cues, render_ass, wrap_text
 from .tts_audio import wave_metadata
@@ -87,6 +87,11 @@ def validate_timeline(timeline, base=None, check_files=True, ffprobe="ffprobe", 
         return {"valid": False, "issues": [str(exc)], "ready_for_render": False}
     base = Path(base or ".").resolve()
     assets = {a["asset_id"]: a for a in timeline["assets"]}
+    try:
+        selected_ids = {c["asset_id"] for c in timeline["foreground"] if c["role"] == "portrait"}
+        check_portrait_sources([a for k,a in assets.items() if k in selected_ids])
+    except CreatorDNAError as exc:
+        issues.append(str(exc))
     duration = timeline["duration"]
     source_ranges = {}
     file_checks = {}
@@ -162,6 +167,8 @@ def validate_timeline(timeline, base=None, check_files=True, ffprobe="ffprobe", 
                 if aend is None or not a["source_start"] <= astart < aend <= a["source_end"]+1e-6 or abs((aend-astart)-(end-start)) > 1e-6:
                     issues.append("镜头越出素材区间或时长不匹配："+clip["clip_id"])
                 if clip["role"] == "portrait":
+                    if a.get("portrait_provenance") and (clip["layout"]["fit"] != "contain" or clip["layout"]["crop"]):
+                        issues.append("有来源记录的人像必须完整等比放入画面，禁止裁掉上半身。")
                     if a["audio_sha256"] != timeline["audio"]["sha256"]:
                         issues.append("人像素材不属于当前口播音频。")
                     if abs(astart-a["source_start"]-(start-a["audio_offset"])) > 1e-6:

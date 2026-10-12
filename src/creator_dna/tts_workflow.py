@@ -26,11 +26,12 @@ def create_synthesis_task(workspace, creator, asset_id, settings, text, timeout=
     settings = config(settings)
     provider = make_provider(settings)
     dependencies(settings)
-    asset = VoiceAssets(workspace, creator).usable(asset_id, provider)
+    assets = VoiceAssets(workspace, creator)
+    asset = assets.usable(asset_id, provider) if asset_id else assets.default_voice(provider)
     segments = split_text(text, min(settings["segment_chars"], provider.capabilities().max_characters), settings["paragraph_pause"])
     if len(segments) > 1000:
         raise TTSError("TooManySegments")
-    params = {"workspace": str(workspace.root), "config": provider.settings, "voice_asset": asset_id,
+    params = {"workspace": str(workspace.root), "config": provider.settings, "voice_asset": asset["asset_id"],
               "voice_id_snapshot": asset["voice_id"], "text": text}
     return TaskManager(workspace).create([stage("tts", "cloud_tts", params, timeout=timeout,
                                              max_attempts=1, retry_safe=True)], creator, kind="cloud-tts")

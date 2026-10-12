@@ -39,6 +39,9 @@ def fixture(root, workspace, duration=4, portrait=False):
             import_asset(image,"broll","screenshot","image","SYNTHETIC","owned","synthetic only",["AI"],"blue test B-roll"),
             import_asset(bg,"bg","background","image","SYNTHETIC","owned","synthetic only",[],"green test background")]
     registry=root/"assets.json"
+    assets[0]["portrait_provenance"]={"source_id":"SYNTHETIC-NOT-A-PERSON","source_path":str(video.resolve()),
+        "source_sha256":digest_file(video),"framing":"source_frame",
+        "segments":[{"start":0,"end":duration,"source_start":0,"source_end":duration}]}
     write_json(registry,{"schema_version":"3.0-05","assets":assets})
     timing=root/"timing.json"
     text="合成测试。AI画面。结尾。"

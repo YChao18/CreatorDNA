@@ -8,6 +8,7 @@ from pathlib import Path
 from . import __version__
 from .agents import CodexAdapter, codex_command
 from .errors import CreatorDNAError
+from .configuration import load_environment
 from .media import MediaProcessor, WhisperTranscriber
 from .skills import SkillManager
 from .storage import Workspace, read_json, write_json
@@ -225,6 +226,7 @@ def execute(args):
 
 
 def main(argv=None):
+    load_environment()
     if sys.platform == "win32":
         for stream in (sys.stdout, sys.stderr):
             if hasattr(stream, "reconfigure"):

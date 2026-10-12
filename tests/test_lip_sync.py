@@ -9,7 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from jsonschema import Draft202012Validator
 
@@ -65,11 +65,32 @@ class PortraitPlanTests(unittest.TestCase):
                                     "--review", "review.json", "--durations", "5", "8"])
         self.assertEqual(args.durations, [5, 8])
 
-    def test_sampling_cannot_approve_mouth_pose_motion_or_identity(self):
+    def test_unverified_legacy_checkpoint_is_rejected_before_pickle_load(self):
+        path = Path(__file__).resolve().parents[1] / "src/creator_dna/musetalk_runner.py"
+        spec = importlib.util.spec_from_file_location("musetalk_bridge", path)
+        bridge = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(bridge)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            file = root / "models/face-parse-bisent/resnet18-5c106cde.pth"
+            file.parent.mkdir(parents=True)
+            file.write_bytes(b"SYNTHETIC UNKNOWN CHECKPOINT")
+            torch = Mock()
+            with self.assertRaisesRegex(RuntimeError, "UnverifiedLegacy"):
+                bridge.prepare_resnet_checkpoint(root, root / "output", torch)
+            torch.load.assert_not_called()
+
+    def test_automatic_selection_does_not_invent_manual_quality_or_pose(self):
         ranked = rank_candidates(self.lib)
-        self.assertTrue(all(not c["eligible"] and c["quality_score"] is None for c in ranked))
+        self.assertTrue(all(c["eligible"] and c["quality_score"] is None and c["review"] is None for c in ranked))
+        self.assertTrue(all(c["status"] == "automatic_candidate" for c in ranked))
+        result = plan(ranked, [5, 5])
+        self.assertEqual(result["clips"][0]["usage"]["start_pose"], "unknown")
+        self.assertEqual(result["b_roll_hooks"][0]["position"], 5)
+        no_faces = copy.deepcopy(self.lib)
+        no_faces["sources"][0]["frames"][0]["faces"] = []
         with self.assertRaisesRegex(CreatorDNAError, "Insufficient"):
-            plan(ranked, [5])
+            plan(rank_candidates(no_faces), [5])
         for key in ("mouth_unobstructed", "front_facing", "natural_action", "moderate_head_motion"):
             review = copy.deepcopy(self.review)
             review["candidates"][0][key] = False
@@ -117,6 +138,43 @@ class PortraitPlanTests(unittest.TestCase):
         self.ranked[1]["review"]["scene_id"] = "other-scene"
         p = plan(self.ranked, [6, 6])
         self.assertEqual(p["b_roll_hooks"][0]["position"], 6)
+
+    def test_video_cannot_fill_a_short_source_with_a_second_person(self):
+        ranked = copy.deepcopy(self.ranked)
+        ranked[1].update(source_id="second-person", source_sha256="b"*64, source_path="different-shirt.mp4")
+        with self.assertRaisesRegex(CreatorDNAError, "InsufficientSingleSource"):
+            plan(ranked, [6, 6])
+
+    def test_entire_video_selects_a_source_that_covers_all_segments(self):
+        short = copy.deepcopy(self.ranked[0])
+        short.update(candidate_id="short",source_id="second-person",source_sha256="b"*64,source_path="other.mp4")
+        result = plan([short]+self.ranked, [6,6])
+        self.assertEqual(result["source_lock"]["source_sha256"], "a"*64)
+        self.assertEqual({c["candidate"]["source_id"] for c in result["clips"]}, {"s-1"})
+
+    def test_timeline_source_lock_cannot_change_with_another_generate_call(self):
+        event = plan(self.ranked[:1],[6])["clips"][0]["usage"]
+        other = copy.deepcopy(self.ranked[1])
+        other.update(source_id="other",source_sha256="b"*64,source_path="other.mp4")
+        with self.assertRaisesRegex(CreatorDNAError, "InsufficientSingleSource"):
+            plan([other],[6],[event],position=6)
+
+    def test_automatic_contiguous_window_advances_actions_without_looping(self):
+        lib = minimal_library()
+        for c in lib["sources"][0]["candidates"]:
+            c["shot_id"] = "measured-one-shot"
+        ranked = rank_candidates(lib)
+        window = next(c for c in ranked if c.get("member_candidate_ids"))
+        result = plan(ranked,[6,6,6],candidate=window["candidate_id"])
+        self.assertEqual([c["usage"]["source_start"] for c in result["clips"]], [0,6,12])
+        self.assertTrue(all(c["usage"]["transition"] == "continuous" for c in result["clips"]))
+        with tempfile.TemporaryDirectory() as temp:
+            ledger=UsageLedger(Workspace(temp),"synthetic")
+            for i,clip in enumerate(result["clips"]):
+                ledger.reserve(f"task-{i}",clip,ranked,{"timeline":"default","position":i*6,"cooldown":30,"max_uses":1})
+            self.assertEqual(len(ledger.read()),3)
+        with self.assertRaisesRegex(CreatorDNAError,"InsufficientSingleSource"):
+            plan(ranked,[6]*4,candidate=window["candidate_id"])
 
     def test_usage_reservation_is_idempotent_and_prevents_queued_conflicts(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -188,6 +246,25 @@ class LipSyncMediaTests(unittest.TestCase):
         self.audio.write_bytes(b"changed")
         result = TaskManager(self.workspace).run(task["task_id"])
         self.assertEqual(result["error"]["type"], "InputChanged")
+
+    def test_work_reference_resize_preserves_aspect_and_original_file(self):
+        from PIL import Image
+        from creator_dna.lip_sync_workflow import prepare_task
+        image=self.audio.parent/"large-synthetic-reference.png"
+        Image.new("RGB",(1200,900),"blue").save(image)
+        before=digest_file(image)
+        consent={**self.consent,"source_sha256":[before]}
+        p,_=prepare_task(self.workspace,"synthetic",self.settings,audio=self.audio,image=image,
+                         consent=consent,duration=5,reference_max_dimension=512)
+        self.assertEqual((p["width"],p["height"]),(512,384))
+        self.assertEqual(p["reference_processing"]["source_geometry"],{"width":1200,"height":900})
+        self.assertEqual(digest_file(image),before)
+        with Image.open(image) as original:
+            self.assertEqual(original.size,(1200,900))
+        for value in (True,511,8193):
+            with self.assertRaisesRegex(CreatorDNAError,"InvalidReferenceMaxDimension"):
+                prepare_task(self.workspace,"synthetic",self.settings,audio=self.audio,image=image,
+                             consent=consent,duration=5,reference_max_dimension=value)
 
     def test_task_workspace_cannot_write_into_original_material_folder(self):
         with self.assertRaisesRegex(CreatorDNAError, "workspace"):

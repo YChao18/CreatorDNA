@@ -48,6 +48,10 @@ def contracts():
                 rights_note=S, topics=array(S), description=S, width=I, height=I,
                 duration=nullable(P), source_start=N, source_end=nullable(P), audio_offset=nullable(N), audio_sha256=nullable(HASH))
     cue = obj(cue_id=S, start=N, end=P, text=S, timing_basis=S)
+    asset["properties"]["portrait_provenance"] = obj(source_id=S, source_path=S, source_sha256=HASH,
+        framing=enum("upper_body", "source_frame"),
+        segments=array(obj(start=N, end=P, source_start=N, source_end=P), minItems=1))
+    asset["properties"]["portrait_provenance"]["properties"]["reference_type"] = enum("video", "image")
     scene = obj(cue_ids=array(S, minItems=1), role=enum("portrait", "b_roll"),
                 topics=array(S), keywords=array(S), preferred_asset_id=nullable(S), asset_policy=enum("auto", "selected", "missing"),
                 reason=S, layout=nullable(enum("center", "left", "right")),

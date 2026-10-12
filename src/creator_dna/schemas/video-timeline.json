@@ -204,6 +204,77 @@
                 "type": "null"
               }
             ]
+          },
+          "portrait_provenance": {
+            "type": "object",
+            "properties": {
+              "source_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "framing": {
+                "type": "string",
+                "enum": [
+                  "upper_body",
+                  "source_frame"
+                ]
+              },
+              "segments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "start": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "end": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "source_start": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "source_end": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "end",
+                    "source_start",
+                    "source_end"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 1
+              },
+              "reference_type": {
+                "type": "string",
+                "enum": [
+                  "video",
+                  "image"
+                ]
+              }
+            },
+            "required": [
+              "source_id",
+              "source_path",
+              "source_sha256",
+              "framing",
+              "segments"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

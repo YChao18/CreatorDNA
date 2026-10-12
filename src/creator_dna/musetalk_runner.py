@@ -5,6 +5,7 @@ All generated media/cache/logs live in the attempt directory. No network access.
 """
 
 import importlib.util
+import hashlib
 import contextlib
 import io
 import json
@@ -63,6 +64,38 @@ def no_network(*args, **kwargs):
     raise RuntimeError("OfflineModelCacheRequired")
 
 
+def allow_legacy_checkpoint_metadata(torch, np):
+    """Allow primitive dataset metadata while retaining weights-only loading."""
+    if hasattr(torch.serialization, "add_safe_globals"):
+        from torch.torch_version import TorchVersion
+        from mmengine.logging.history_buffer import HistoryBuffer
+        names = ("float16", "float32", "float64", "int8", "int16", "int32", "int64",
+                 "uint8", "uint16", "uint32", "uint64", "bool")
+        torch.serialization.add_safe_globals([
+            np.core.multiarray._reconstruct, np.core.multiarray.scalar, np.ndarray, np.dtype,
+            *{type(np.dtype(name)) for name in names}, TorchVersion, HistoryBuffer,
+        ])
+
+
+def prepare_resnet_checkpoint(repository, output, torch):
+    """Convert the pinned official legacy TAR to a local tensor-only cache."""
+    source = repository / "models/face-parse-bisent/resnet18-5c106cde.pth"
+    expected = "5c106cde386e87d4033832f2996f5493238eda96ccf559d1d62760c4de0613f8"
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    if digest != expected:
+        raise RuntimeError("UnverifiedLegacyResnetCheckpoint")
+    # This one known upstream file predates weights-only loading. Never opt
+    # other files into unrestricted loading, and never alter the source model.
+    state = torch.load(source, map_location="cpu", weights_only=False)
+    if not isinstance(state, dict) or not state or any(not isinstance(k, str) or not isinstance(v, torch.Tensor) for k, v in state.items()):
+        raise RuntimeError("LegacyResnetIsNotTensorState")
+    target = output / "cache/resnet18-tensors.pth"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(state, target)
+    torch.load(target, map_location="cpu", weights_only=True)
+    return target
+
+
 def run(job):
     settings = job["settings"]
     output = Path(job["directory"])
@@ -87,6 +120,10 @@ def run(job):
     import torch
     import cv2
     import numpy as np
+    # Official legacy DWPose checkpoints contain NumPy dataset metadata. Keep
+    # PyTorch's weights-only loader enabled; allow these concrete metadata types
+    # instead of opting every checkpoint into unrestricted pickle execution.
+    allow_legacy_checkpoint_metadata(torch, np)
     # Upstream read_imgs uses imread, which cannot reliably open Windows Unicode
     # paths. Preserve image data while replacing only filesystem decoding.
     def unicode_imread(path, flags=cv2.IMREAD_COLOR):
@@ -115,7 +152,11 @@ def run(job):
     dtype = unet.model.dtype
     whisper = WhisperModel.from_pretrained("models/whisper", local_files_only=True).to(device=device, dtype=dtype).eval()
     whisper.requires_grad_(False)
-    fp = FaceParsing(left_cheek_width=90, right_cheek_width=90)
+    converted_resnet = prepare_resnet_checkpoint(repository, output, torch)
+    class LocalFaceParsing(FaceParsing):
+        def model_init(self, resnet_path=None, model_pth="./models/face-parse-bisent/79999_iter.pth"):
+            return super().model_init(resnet_path=str(converted_resnet), model_pth=model_pth)
+    fp = LocalFaceParsing(left_cheek_width=90, right_cheek_width=90)
     processor = AudioProcessor(feature_extractor_path="models/whisper")
     frames_dir = output / "source_frames"
     frames_dir.mkdir()
@@ -176,7 +217,7 @@ def run(job):
     video = output / "model.mp4"
     subprocess.run([settings["ffmpeg"], "-v", "error", "-nostdin", "-n", "-framerate", str(settings["fps"]),
         "-i", str(generated / "%08d.png"), "-frames:v", str(n), "-an", "-c:v", "libx264",
-        "-crf", "18", "-pix_fmt", "yuv420p", str(video)], check=True)
+        "-crf", "18", "-vf", "setsar=1", "-pix_fmt", "yuv420p", str(video)], check=True)
     torch.cuda.synchronize()
     metrics = {"model": "MuseTalk-1.5", "inferred_frames": n,
         "elapsed_seconds": round(time.monotonic()-started, 3),

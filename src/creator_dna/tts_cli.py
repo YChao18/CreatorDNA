@@ -13,14 +13,14 @@ from .voice_assets import VoiceAssets
 def add_commands(commands, workspace):
     tts = commands.add_parser("tts", help="云端口播：能力、授权声音资产、注册音色和真实语音合成")
     operations = tts.add_subparsers(dest="operation", required=True)
-    for name in ("capabilities", "reference", "voices", "remote-voices", "register", "import-voice", "delete-voice", "synthesize", "resolve"):
+    for name in ("capabilities", "reference", "voices", "binding", "bind", "remote-voices", "register", "import-voice", "delete-voice", "synthesize", "resolve"):
         command = operations.add_parser(name)
         workspace(command)
-        if name not in {"voices", "resolve"}:
+        if name not in {"voices", "binding", "resolve"}:
             command.add_argument("--config", type=Path, required=True, help="无 API Key 的 JSON 配置")
         if name not in {"capabilities", "remote-voices", "resolve"}:
             command.add_argument("--creator", required=True)
-        if name in {"reference", "import-voice"}:
+        if name in {"reference", "import-voice", "bind"}:
             command.add_argument("--authorize", action="store_true", help="确认已获得声音使用与复刻授权")
             command.add_argument("--cloud-processing", action="store_true", help="确认所选服务商云端处理参考声音与文案")
             command.add_argument("--confirmation", required=True, help="授权人署名、授权依据和云端处理确认")
@@ -32,10 +32,12 @@ def add_commands(commands, workspace):
         if name == "register":
             command.add_argument("--reference", required=True)
             command.add_argument("--name", required=True, help="千问 1–16 字符前缀；MiniMax 8–256 字符 Voice ID")
-        if name == "import-voice":
+        if name in {"import-voice", "bind"}:
             command.add_argument("--voice-id", required=True, help="须能从当前账户的云端音色列表确认")
+        if name == "bind":
+            command.add_argument("--input", type=Path, required=True, help="只读素材文件夹；每个创作者的默认音色关联")
         if name in {"synthesize", "delete-voice"}:
-            command.add_argument("--voice", required=True, help="本地 voice-<hash> 资产 ID，禁止裸 ID 跨服务商混用")
+            command.add_argument("--voice", required=name == "delete-voice", help="本地 voice-<hash> 资产 ID；合成省略时使用该素材文件夹的绑定音色")
         if name == "delete-voice":
             command.add_argument("--confirm-delete", action="store_true")
         if name == "remote-voices":
@@ -59,6 +61,8 @@ def execute(args, workspace):
         return resolve_segment(TaskManager(workspace), args.task, args.segment, args.confirmation)
     if args.operation == "voices":
         return {"voices": VoiceAssets(workspace, args.creator).voices()}
+    if args.operation == "binding":
+        return VoiceAssets(workspace, args.creator).binding()
     provider = make_provider(config(args.config))
     if args.operation == "capabilities":
         return {**provider.capabilities().to_dict(), "scope": provider.scope,
@@ -69,12 +73,16 @@ def execute(args, workspace):
             raise TTSError("InvalidPage")
         return provider.list_voices(args.page)
     assets = VoiceAssets(workspace, args.creator)
-    if args.operation in {"reference", "import-voice"}:
+    if args.operation in {"reference", "import-voice", "bind"}:
         consent = {"provider": provider.name, "scope": provider.scope, "authorized": args.authorize,
                    "cloud_processing": args.cloud_processing, "confirmation": args.confirmation,
                    "confirmed_at": now()}
         from .tts import require_consent
         require_consent(consent, provider.name, provider.scope)
+        if args.operation == "bind":
+            folder = assets.check_binding_folder(args.input)
+            asset = assets.import_voice(provider, args.voice_id, consent)
+            return assets.bind(folder, asset["asset_id"], provider)
         if args.operation == "import-voice":
             return assets.import_voice(provider, args.voice_id, consent)
         if args.library and not args.candidate:

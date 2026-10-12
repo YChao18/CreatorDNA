@@ -9,8 +9,10 @@ from .agents import CodexAdapter
 from .contracts import validate
 from .errors import CreatorDNAError
 from .lip_sync_workflow import generate_stage, prepare_task, verify_sources
+from .portrait import UsageLedger, load_library, plan as portrait_plan, rank_candidates
+from .portrait_sources import creator_raw_folder, check_reused_portraits
 from .production import ProductionWorkflow
-from .production_assets import import_asset, validate_assets
+from .production_assets import import_asset, validate_assets, check_portrait_sources
 from .render import artifact, settings as render_settings
 from .storage import Workspace, digest_file, now, read_json, write_json, write_text
 from .subtitles import speech_input
@@ -53,6 +55,20 @@ def verify_materials(ctx):
     verify_sources(ctx.materials)
 
 
+def check_portrait_inputs(workspace, creator, cfg):
+    folder = creator_raw_folder(workspace, creator)
+    portrait = cfg.get("portrait", {})
+    if cfg.get("lipsync"):
+        if portrait.get("image") and folder is not None:
+            raise CreatorDNAError(f"人物参考须使用 {folder} 内的无字幕动态原片，不能改用静态截图。")
+        if portrait.get("library"):
+            rank_candidates(load_library(portrait["library"],creator),
+                            read_json(portrait["review"]) if portrait.get("review") else None,
+                            reference_folder=folder)
+    elif folder is not None:
+        check_reused_portraits(read_json(cfg["assets"])["assets"], folder)
+
+
 def create_video_task(workspace, creator, config_path=None, *, topic=None, script=None, timeline=None, render=None, timeout=7200):
     manager = TaskManager(workspace)
     snapshots = []
@@ -60,7 +76,12 @@ def create_video_task(workspace, creator, config_path=None, *, topic=None, scrip
         path = Path(timeline).resolve()
         cfg = render_settings(render)
         from .timeline import validate_timeline
-        report = validate_timeline(read_json(path), path.parent, ffprobe=cfg["ffprobe"], check_ass_consistency=False)
+        existing = read_json(path)
+        validate(existing,"video-timeline")
+        selected = {c["asset_id"] for c in existing["foreground"] if c["role"] == "portrait"}
+        check_portrait_sources([a for a in existing["assets"] if a["asset_id"] in selected],require_provenance=True)
+        check_reused_portraits([a for a in existing["assets"] if a["asset_id"] in selected], creator_raw_folder(workspace,creator))
+        report = validate_timeline(existing, path.parent, ffprobe=cfg["ffprobe"], check_ass_consistency=False)
         if not report["valid"]:
             raise CreatorDNAError("重渲染时间轴无效："+"；".join(report["issues"]))
         # Rebuild generates ASS from edited cues/styles, never edits source run.
@@ -77,11 +98,14 @@ def create_video_task(workspace, creator, config_path=None, *, topic=None, scrip
         if profile["creator_id"] != creator:
             raise CreatorDNAError("Video Style Profile 创作者不匹配。")
         registry = validate_assets(read_json(cfg["assets"]))
+        check_portrait_inputs(workspace, creator, cfg)
         # Freeze all explicit files, plus registry media, before any billable call.
         files = [Path(config_path).resolve(), Path(cfg["profile"]), Path(cfg["assets"])]
         files += [Path(cfg[k]) for k in PATHS-{"profile", "assets"} if cfg.get(k)]
         files += [Path(a["path"]) for a in registry["assets"]]
         files += [Path(v) for k, v in cfg.get("portrait", {}).items() if k in {"image", "library", "review"}]
+        for key in ("portrait_processing_command", "alignment_command"):
+            files += [Path(arg) for arg in cfg.get(key, []) if "{" not in arg and Path(arg).is_file()]
         for a in registry["assets"]:
             source_folder = Path(a["path"]).resolve().parent
             if source_folder == workspace.root or source_folder in workspace.root.parents:
@@ -93,10 +117,12 @@ def create_video_task(workspace, creator, config_path=None, *, topic=None, scrip
             files += [p for p in skill.rglob("*") if p.is_file()]
         snapshots = [{"path": str(p.resolve()), "sha256": digest_file(p)} for p in dict.fromkeys(files)]
         if not cfg.get("speech"):
-            if not cfg.get("tts") or not cfg.get("voice_asset"):
-                raise CreatorDNAError("新声音需要 tts 配置和 voice_asset。")
+            if not cfg.get("tts"):
+                raise CreatorDNAError("新声音需要 tts 配置，并绑定该创作者音色或指定 voice_asset。")
             provider = make_provider(tts_config(cfg["tts"]))
-            voice = VoiceAssets(workspace, creator).usable(cfg["voice_asset"], provider)
+            assets = VoiceAssets(workspace, creator)
+            voice = assets.usable(cfg["voice_asset"], provider) if cfg.get("voice_asset") else assets.default_voice(provider)
+            cfg["voice_asset"] = voice["asset_id"]
             cfg["voice_id_snapshot"] = voice["voice_id"]
         if cfg.get("lipsync"):
             auth = cfg.get("portrait_authorization")
@@ -122,6 +148,7 @@ def agent(cfg):
 def script_stage(ctx, params):
     verify_materials(ctx)
     cfg, text = params["config"], params["script"]
+    check_portrait_inputs(Workspace(params["workspace"]),ctx.creator_id,cfg)
     if cfg.get("tts") and not cfg.get("speech"):
         make_provider(cfg["tts"]).check_credentials()
     if cfg.get("lipsync"):
@@ -167,6 +194,7 @@ def script_stage(ctx, params):
 def tts_stage(ctx, params):
     verify_materials(ctx)
     cfg = params["config"]
+    check_portrait_inputs(Workspace(params["workspace"]),ctx.creator_id,cfg)
     text = artifact(ctx, "script", "script.txt").read_text(encoding="utf-8")
     if cfg.get("speech"):
         audio, duration, spoken, manifest = speech_input(cfg["speech"])
@@ -210,6 +238,7 @@ class SegmentContext:
 def lip_stage(ctx, params):
     verify_materials(ctx)
     cfg = params["config"]
+    check_portrait_inputs(Workspace(params["workspace"]),ctx.creator_id,cfg)
     audio, duration, text, manifest = speech_input(speech_path(ctx))
     if duration < 5:
         raise CreatorDNAError("现有口型 Provider 要求至少 5 秒真实音频。")
@@ -224,6 +253,34 @@ def lip_stage(ctx, params):
     if identity.exists() and read_json(identity) != fingerprint:
         raise CreatorDNAError("口型分段任务模型已改变；不能混合不同模型结果。")
     write_json(identity,fingerprint)
+    # Freeze the entire selection before inference. Resume uses this plan, never
+    # independently selects a new person for the next segment.
+    plan_path = cache/"portrait-plan.json"
+    if plan_path.exists():
+        locked = read_json(plan_path)
+        if locked["boundaries"] != boundaries or locked["audio_sha256"] != digest_file(audio):
+            raise CreatorDNAError("口型整片计划的音频或分段已改变。")
+    else:
+        if any(cache.glob("segment-*/params.json")) or any(cache.glob("segment-*/complete.json")):
+            raise CreatorDNAError("旧分段任务缺少整片单源计划；请创建新任务，不能继续混用人物。")
+        portrait = cfg["portrait"]
+        if portrait.get("image"):
+            image = Path(portrait["image"]).resolve()
+            selection = {"source_lock": {"source_id": "reference-image", "source_path": str(image),
+                         "source_sha256": digest_file(image)}, "clips": [None]*n}
+        else:
+            ranked = rank_candidates(load_library(portrait["library"], ctx.creator_id),
+                                     read_json(portrait["review"]) if portrait.get("review") else None,
+                                     reference_folder=creator_raw_folder(Workspace(params["workspace"]),ctx.creator_id))
+            selection = portrait_plan(ranked, [b-a for a,b in zip(boundaries,boundaries[1:])],
+                                      UsageLedger(Workspace(params["workspace"]),ctx.creator_id).read(),
+                                      timeline=ctx.task_id, **{k:v for k,v in portrait.items()
+                                      if k in {"candidate","source_id","cooldown","max_uses"}})
+        locked = {"boundaries": boundaries, "audio_sha256": digest_file(audio), **selection}
+        write_json(plan_path, locked)
+    source_lock = locked["source_lock"]
+    verify_sources([{"path": source_lock["source_path"], "sha256": source_lock["source_sha256"]}])
+    ctx.report("整片人物已锁定一个源文件；后续分段与恢复禁止换源", source_lock["source_id"], basis="persisted single-source plan")
     videos, audit = [], []
     for i, (start, end) in enumerate(zip(boundaries, boundaries[1:])):
         ctx.check_cancelled()
@@ -245,10 +302,13 @@ def lip_stage(ctx, params):
                     "source_sha256": auth["source_sha256"], "audio_sha256": [digest_file(audio)]}
                 p, snapshots = prepare_task(Workspace(params["workspace"]), ctx.creator_id, cfg["lipsync"], audio=audio,
                     consent=consent, duration=end-start, audio_start=start, timeline=ctx.task_id,
-                    position=start, **cfg["portrait"])
+                    position=start, planned_selection=locked["clips"][i], **cfg["portrait"])
                 write_json(prepared, p)
                 write_json(folder/"authorization.json", {"workflow_authorization": auth, "bound_consent": consent})
             p = read_json(prepared)
+            if (p["reference"] != str(Path(source_lock["source_path"]).resolve()) or
+                    p["selection"] != locked["clips"][i] or p["audio_start"] != start or p["duration"] != end-start):
+                raise CreatorDNAError("口型缓存与整片单源选片计划不一致。")
             # Each retry keeps the original reservation/selection/model fingerprint.
             directory = folder/f"attempt-{ctx.attempt:03d}"
             directory.mkdir()
@@ -259,6 +319,11 @@ def lip_stage(ctx, params):
             video = sub.output_dir/"portrait.mp4"
             receipt = {"video": str(video), "artifacts": [{"path": str(f), "sha256": digest_file(f)} for f in sub.output_dir.rglob("*") if f.is_file()]}
             write_json(receipt_path, receipt)
+        portrait_file = next(Path(r["path"]) for r in receipt["artifacts"] if Path(r["path"]).name == "portrait.json")
+        generated = read_json(portrait_file)
+        if (generated["source_sha256"] != source_lock["source_sha256"] or
+                generated["audio_sha256"] != locked["audio_sha256"] or generated["selection"] != locked["clips"][i]):
+            raise CreatorDNAError("口型缓存人物来源或音频不符合整片锁定计划。")
         videos.append(video)
         audit.append({"index": i, "start": start, "end": end, "receipt": str(receipt_path)})
         ctx.report(f"已完成口型片段 {i+1}/{n}", video.name, i+1, n, "segments", "verified real inference segments")
@@ -268,17 +333,65 @@ def lip_stage(ctx, params):
     if len(dimensions) != 1:
         raise CreatorDNAError("口型片段尺寸不同；请选择相同模板的人像素材。")
     for i, video in enumerate(videos):
-        shutil.copyfile(video, ctx.attempt_dir/f"portrait-{i:04d}.mp4")
+        target = ctx.attempt_dir/f"portrait-{i:04d}.mp4"
+        measured = next(s for s in probe(video, cfg["render"]["ffprobe"], count=True)["streams"] if s["codec_type"] == "video")
+        wanted = math.ceil((audit[i]["end"]-audit[i]["start"])*25-1e-9)
+        missing = wanted-int(measured["nb_read_frames"])
+        if missing < 0 or missing > 1:
+            raise StageFailure("口型片段帧数不匹配；拒绝循环填充。", "PortraitSegmentFramesMismatch")
+        if missing:
+            # A neural backend may floor fractional audio endpoints. Extend at
+            # most ONE CFR endpoint frame per segment so later source cuts keep
+            # their exact position in the main audio. Never loop a source clip.
+            run_ffmpeg(ctx, [cfg["render"]["ffmpeg"], "-v", "error", "-n", "-i", str(video),
+                            "-map", "0:v:0", "-an", "-vf", "tpad=stop_mode=clone:stop_duration=0.04,setsar=1",
+                            "-frames:v", str(wanted), "-r", "25", "-c:v", "libx264", "-crf", "18", str(target)],
+                       wanted/25, log_name=f"portrait-endpoint-{i:04d}")
+        else:
+            shutil.copyfile(video, target)
+        audit[i]["cfr_endpoint_extension_frames"] = missing
     write_text(ctx.attempt_dir/"portraits.txt", "".join(f"file 'portrait-{i:04d}.mp4'\n" for i in range(n)))
     full = ctx.output_dir/"portrait.mp4"
     run_ffmpeg(ctx, [cfg["render"]["ffmpeg"], "-v", "error", "-n", "-f", "concat", "-safe", "1", "-i", "portraits.txt",
                     "-map", "0:v:0", "-an", "-c:v", "copy", "-t", str(duration), str(full)], duration, cwd=ctx.attempt_dir, log_name="portrait-concat")
+    if cfg.get("portrait_processing_command"):
+        processed = ctx.output_dir / "portrait-clean.mov"
+        request = ctx.attempt_dir / "portrait-processing-request.json"
+        input_hash = digest_file(full)
+        write_json(request, {"input": str(full), "input_sha256": input_hash, "output": str(processed),
+                             "duration": duration, "frame_rate": 25, "segments": audit,
+                             "audio_sha256": digest_file(audio), "source_lock": source_lock,
+                             "required_framing": "upper_body"})
+        command = [arg.replace("{request}", str(request)) for arg in cfg["portrait_processing_command"]]
+        ctx.report("提取口型人物并去掉旧画面包装", basis="configured portrait processor running; total unknown")
+        with (ctx.attempt_dir / "portrait-processing.stdout.log").open("wb") as out, (ctx.attempt_dir / "portrait-processing.stderr.log").open("wb") as err:
+            result = subprocess.run(command, stdout=out, stderr=err, timeout=ctx.timeout_seconds, check=False)
+        if result.returncode or not processed.is_file() or processed.is_symlink():
+            raise StageFailure("人物处理失败；查看 portrait-processing.stderr.log。", "PortraitProcessingFailed")
+        if digest_file(full) != input_hash:
+            raise StageFailure("人物处理修改了原口型输出。", "PortraitInputChanged")
+        report_path = processed.with_suffix(".processing.json")
+        if not report_path.is_file():
+            raise StageFailure("人物处理缺少上半身构图记录。", "PortraitFramingEvidenceMissing")
+        report = read_json(report_path)
+        if (report.get("framing") != "upper_body" or report.get("source_lock") != source_lock
+                or report.get("input_sha256") != input_hash or report.get("output_sha256") != digest_file(processed)):
+            raise StageFailure("人物处理来源、构图或输出哈希不符合整片要求。", "PortraitFramingMismatch")
+        full = processed
     a = import_asset(full, "generated-portrait", "portrait", "video", "real lip-sync provider output", "authorized",
                      cfg["portrait_authorization"]["confirmation"], [], "真实口型结果，人工验收待完成", cfg["render"]["ffprobe"], audio_sha256=digest_file(audio))
     if abs(a["duration"]-duration) > .08:
         raise StageFailure("口型分段拼接时长不匹配", "PortraitConcatMismatch")
     # CFR last frame may extend by < one frame; actual source duration remains measured.
+    a["portrait_provenance"] = {**source_lock, "reference_type": "image" if cfg["portrait"].get("image") else "video",
+                               "framing": "upper_body" if cfg.get("portrait_processing_command") else "source_frame",
+                               "segments": [{"start": start, "end": end,
+                               "source_start": clip["usage"]["source_start"] if clip else 0,
+                               "source_end": clip["usage"]["source_start"]+end-start if clip else end-start}
+                               for start,end,clip in zip(boundaries,boundaries[1:],locked["clips"])]}
+    validate_assets({"schema_version":"3.0-05","assets":[a]})
     write_json(ctx.output_dir/"portrait-asset.json", a)
+    write_json(ctx.output_dir/"portrait-plan.json", locked)
     write_json(ctx.output_dir/"portrait-segments.json", audit)
     for p in ctx.attempt_dir.glob("portrait-*.mp4"):
         p.unlink()
@@ -311,6 +424,9 @@ def composition_stage(ctx, params):
         # The new audio must use the new portrait, never a stale portrait from another speech.
         registry["assets"] = [a for a in registry["assets"] if a["kind"] != "portrait"]
         registry["assets"].append(read_json(artifact(ctx, "lip_sync", "portrait-asset.json")))
+    validate_assets(registry)
+    check_reused_portraits(registry["assets"],creator_raw_folder(Workspace(params["workspace"]),ctx.creator_id))
+    check_portrait_sources(registry["assets"],require_provenance=True)
     registry_path = ctx.output_dir/"registry.json"
     write_json(registry_path, registry)
     ctx.report("按真实音频时间戳生成字幕和场景时间轴", basis="existing production planner running; total unknown")

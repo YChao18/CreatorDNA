@@ -16,7 +16,7 @@ class RealLipSyncIntegrationTests(unittest.TestCase):
         workspace = Workspace(os.environ["CREATORDNA_LIPSYNC_WORKSPACE"])
         task = create_task(workspace, os.environ["CREATORDNA_LIPSYNC_CREATOR"], os.environ["CREATORDNA_LIPSYNC_CONFIG"],
             audio=os.environ["CREATORDNA_LIPSYNC_AUDIO"], library=os.environ["CREATORDNA_LIPSYNC_LIBRARY"],
-            review=os.environ["CREATORDNA_LIPSYNC_REVIEW"], consent=os.environ["CREATORDNA_LIPSYNC_CONSENT"],
+            review=os.getenv("CREATORDNA_LIPSYNC_REVIEW"), consent=os.environ["CREATORDNA_LIPSYNC_CONSENT"],
             candidate=os.getenv("CREATORDNA_LIPSYNC_CANDIDATE"), timeline=os.environ["CREATORDNA_LIPSYNC_TIMELINE"],
             duration=float(os.getenv("CREATORDNA_LIPSYNC_DURATION", "8")))
         result = TaskManager(workspace).run(task["task_id"])

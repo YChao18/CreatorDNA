@@ -6,11 +6,9 @@
   "quality": false,
   "director": "agent",
   "tts": "../tts/minimax-cn.json",
-  "voice_asset": "请替换为已授权已注册音色资产ID",
   "lipsync": "../lipsync/musetalk.json",
   "portrait": {
     "library": "../../workspace/your-assets/library.json",
-    "review": "../../workspace/your-assets/portrait-review.json",
     "cooldown": 30,
     "max_uses": 1
   },

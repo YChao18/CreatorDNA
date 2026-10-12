@@ -79,12 +79,15 @@ class RendererTests(unittest.TestCase):
         self.assertTrue(all(r["reused"] for r in records))
         self.assertNotEqual(final,final2)
         self.assertEqual(self.before,{p.name:digest_file(p) for p in self.f["video"].parent.iterdir()})
-        # B-roll center is blue, while the exposed border is green.
+        # B-roll covers the canvas; the presenter inset still exposes its green
+        # background during portrait scenes.
         frame=subprocess.run(["ffmpeg","-v","error","-ss","1.7","-i",str(final),"-frames:v","1","-f","rawvideo","-pix_fmt","rgb24","-"],capture_output=True,check=True).stdout
         center=frame[(50*320+160)*3:(50*320+160)*3+3]
         corner=frame[:3]
         self.assertGreater(center[2],200)
-        self.assertGreater(corner[1],80)
+        self.assertGreater(corner[2],200)
+        portrait=subprocess.run(["ffmpeg","-v","error","-ss","0.5","-i",str(final),"-frames:v","1","-f","rawvideo","-pix_fmt","rgb24","-"],capture_output=True,check=True).stdout
+        self.assertGreater(portrait[1],80)
 
     def test_full_workflow_existing_script_and_speech(self):
         task=create_video_task(self.ws,"synthetic-render",self.f["workflow"],script=self.f["text"])
@@ -120,10 +123,57 @@ class RendererTests(unittest.TestCase):
         t=read_json(self.plan["timeline"])
         t["output"]["frame_rate"]="30000/1001"
         t["foreground"][0]["transition"]={"type":"fade","duration":.4}
-        t["foreground"][0]["layout"].update(fit="cover",anchor="right",crop={"x":.1,"y":0,"width":.8,"height":1})
+        # Crop auxiliary artwork; the provenance-bound person keeps the body.
+        t["foreground"][1]["layout"].update(fit="cover",anchor="right",crop={"x":.1,"y":0,"width":.8,"height":1})
         path=Path(self.plan["timeline"]).parent/"fractional.json"
         write_json(path,t)
         self.run_render(path,{"segment_seconds":.5,"preset":"ultrafast"})
+
+    def test_body_crop_and_mixed_person_timeline_are_rejected_before_render(self):
+        from creator_dna.timeline import validate_timeline
+        t=read_json(self.plan["timeline"])
+        t["foreground"][0]["layout"]["fit"]="cover"
+        report=validate_timeline(t,Path(self.plan["timeline"]).parent,check_files=False)
+        self.assertTrue(any("禁止裁掉上半身" in issue for issue in report["issues"]))
+        t=read_json(self.plan["timeline"])
+        import copy
+        person=next(a for a in t["assets"] if a["kind"]=="portrait")
+        other=copy.deepcopy(person);other["asset_id"]="different-person"
+        other["portrait_provenance"]["source_sha256"]="b"*64
+        other["portrait_provenance"]["source_path"]="different-clothes.mp4"
+        t["assets"].append(other);t["foreground"][-1]["asset_id"]="different-person"
+        report=validate_timeline(t,Path(self.plan["timeline"]).parent,check_files=False)
+        self.assertTrue(any("禁止跨素材混用" in issue for issue in report["issues"]))
+        legacy=read_json(self.plan["timeline"])
+        for asset in legacy["assets"]:
+            asset.pop("portrait_provenance",None)
+        legacy_path=Path(self.plan["timeline"]).parent/"legacy-person-no-source.json"
+        write_json(legacy_path,legacy)
+        with self.assertRaisesRegex(CreatorDNAError,"单源来源记录"):
+            create_video_task(self.ws,"synthetic-render",timeline=legacy_path)
+
+    def test_rgba_odd_width_portrait_padding_keeps_alpha(self):
+        from PIL import Image,ImageDraw
+        from creator_dna.render import geometry
+        # Exercise the actual ProRes -> scaled alpha -> YUV overlay path that
+        # failed for a 691 px inset; neither image is a real model/person.
+        png=self.root/"alpha-synthetic.png"
+        image=Image.new("RGBA",(720,700),(0,0,0,0))
+        ImageDraw.Draw(image).rectangle((180,100,540,600),fill=(0,0,255,255))
+        image.save(png)
+        master=self.root/"alpha-synthetic.mov"
+        subprocess.run(["ffmpeg","-v","error","-n","-loop","1","-i",str(png),"-frames:v","2",
+            "-c:v","prores_ks","-profile:v","4","-pix_fmt","yuva444p10le","-threads","2",str(master)],check=True,capture_output=True)
+        layout={"fit":"contain","anchor":"center","crop":None,"pad_color":"#000000",
+                "rect":{"x":.02,"y":.33,"width":.96,"height":.57}}
+        filters,x,y=geometry(layout,{"width":720,"height":1280},preserve_alpha=True)
+        result=subprocess.run(["ffmpeg","-v","error","-f","lavfi","-i","color=c=green:s=720x1280:r=25:d=1",
+            "-i",str(master),"-filter_complex","[1:v]"+",".join(filters)+f"[fg];[0:v][fg]overlay=x={x}:y={y}:shortest=1,format=rgb24[out]",
+            "-map","[out]","-frames:v","1","-f","rawvideo","-"],capture_output=True,check=True)
+        frame=result.stdout
+        sample=lambda x,y:frame[(y*720+x)*3:(y*720+x)*3+3]
+        self.assertGreater(sample(25,450)[1],90)  # Transparent letterbox exposes green.
+        self.assertGreater(sample(360,760)[2],180)  # Synthetic blue foreground survives.
 
     def test_audio_mix_and_cache_ignores_music_change(self):
         self.run_render()
@@ -151,6 +201,7 @@ class RendererTests(unittest.TestCase):
         a.update(path="black.mp4",sha256=digest_file(black))
         for c in t["foreground"]:
             c.update(asset_id=a["asset_id"],role="portrait",source_start=c["start"],source_end=c["end"])
+            c["layout"].update(fit="contain",crop=None)
             c["layout"]["rect"]={"x":0,"y":0,"width":1,"height":1}
         path=base/"black-timeline.json"
         write_json(path,t)

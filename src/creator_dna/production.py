@@ -8,7 +8,7 @@ from pathlib import Path
 from .agents import AgentRequest
 from .contracts import schema, validate
 from .errors import CreatorDNAError
-from .production_assets import prepare_assets, select_asset, validate_assets, USABLE_RIGHTS
+from .production_assets import prepare_assets, select_asset, validate_assets, check_portrait_sources, USABLE_RIGHTS
 from .storage import digest_file, read_json, write_json, write_text
 from .subtitles import load_timing, sentence_cues, speech_input, spoken, write_ass
 from .timeline import DEFAULT_CONFIG, finite, validate_config, validate_timeline
@@ -149,6 +149,15 @@ class ProductionWorkflow:
                 if asset["media_type"] == "video" and role != "portrait":
                     used[asset["asset_id"]] = offset+end-start
             layout = copy.deepcopy(config["layout"])
+            if role in {"background", "b_roll"}:
+                # Presenter placement must not shrink/crop the whole background
+                # or explanatory B-roll into the presenter's inset rectangle.
+                layout.update(fit="cover", anchor="center", crop=None,
+                              rect={"x": 0, "y": 0, "width": 1, "height": 1})
+            if role == "portrait" and asset and asset.get("portrait_provenance"):
+                # Framing must survive composition; a face slot cannot crop off
+                # the body that the portrait processor just preserved.
+                layout.update(fit="contain", crop=None)
             if scene["layout"] is not None:
                 layout["anchor"] = scene["layout"]
             return {"clip_id": scene_id+"-"+role, "scene_id": scene_id, "start": start, "end": end,
@@ -184,6 +193,7 @@ class ProductionWorkflow:
             for cid in scene["cue_ids"]:
                 cue = by_id[cid]
                 subtitles.append({**cue, "keywords": [k for k in scene["keywords"] if k in cue["text"]]})
+        check_portrait_sources(list(selected.values()))
         copied = prepare_assets(list(selected.values()), run / "assets")
         ass = run / "subtitles.ass"
         write_ass(ass, subtitles, output, config["subtitle_style"])

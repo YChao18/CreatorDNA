@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "creator_id", "input_folder", "voice_asset", "voice_id", "provider", "scope", "model", "updated_at"],
+  "properties": {
+    "schema_version": {"const": "3.0-03"},
+    "creator_id": {"type": "string", "minLength": 1},
+    "input_folder": {"type": "string", "minLength": 1},
+    "voice_asset": {"type": "string", "pattern": "^voice-[0-9a-f]{32}$"},
+    "voice_id": {"type": "string", "minLength": 1},
+    "provider": {"enum": ["qwen", "minimax"]},
+    "scope": {"type": "string", "minLength": 1},
+    "model": {"type": "string", "minLength": 1},
+    "updated_at": {"type": "string", "minLength": 1}
+  }
+}

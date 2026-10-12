@@ -46,12 +46,13 @@ def main():
     report = {"schema_version": "3.0-04", "created_at": now(), "library": str(args.library.resolve()),
         "real_model_inference": "not_run", "synthetic_model_evidence": False, "gpu_inventory": gpu,
         "sources": library["summary"]["analyzed_count"], "candidates": len(ranked),
-        "approved_candidates": sum(c["eligible"] for c in ranked), "backend_ready": environment["ready"],
+        "eligible_candidates": sum(c["eligible"] for c in ranked),
+        "approved_candidates": sum(c["status"] == "approved" for c in ranked), "backend_ready": environment["ready"],
         "audio_supplied": bool(args.audio or args.tts_manifest), "human_quality_review": "not_run"}
     write_json(folder / "validation.json", report)
     if args.run:
-        if not args.review or not args.consent or not (args.audio or args.tts_manifest):
-            parser.error("--run requires reviewed material, local consent and new speech audio")
+        if not args.consent or not (args.audio or args.tts_manifest):
+            parser.error("--run requires local consent and new speech audio")
         task = create_task(workspace, args.creator, settings, audio=args.audio, tts_manifest=args.tts_manifest,
             library=args.library, review=args.review, consent=args.consent, duration=args.duration, timeline=args.timeline)
         result = TaskManager(workspace).run(task["task_id"], observer=TerminalProgress())

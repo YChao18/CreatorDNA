@@ -1,11 +1,14 @@
 """Creator Voice sidecar assets; original media and V3.0-01 libraries stay read-only."""
 
 import hashlib
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .contracts import validate
+from .errors import CreatorDNAError
+from .input import validate_input_folder
 from .storage import digest_file, now, read_json, validate_id, write_json
 from .tts import TTSError, require_consent
 from .tts_audio import metadata, tool, validate_reference
@@ -76,6 +79,68 @@ class VoiceAssets:
     def save(self, data):
         validate(data, "voice-asset")
         write_json(self.root / (validate_id(data["asset_id"]) + ".json"), data)
+
+    def check_binding_folder(self, input_folder):
+        folder = validate_input_folder(input_folder, self.workspace.root)
+        self._check_manifest_folder(folder)
+        for path in (self.workspace.root / "creators").glob("*/voice-assets/default.json"):
+            binding = read_json(path)
+            validate(binding, "voice-binding")
+            if Path(binding["input_folder"]).resolve() == folder and binding["creator_id"] != self.creator:
+                raise CreatorDNAError("这个素材文件夹已绑定其他创作者；请使用原 creator ID。")
+        return folder
+
+    def _check_manifest_folder(self, folder):
+        manifest = self.workspace.creator(self.creator) / "manifest.json"
+        if manifest.exists() and Path(read_json(manifest)["input_folder"]).resolve() != folder:
+            raise CreatorDNAError("音色绑定的素材文件夹与该创作者当前 manifest 不一致。")
+
+    def bind(self, input_folder, asset_id, provider):
+        # One writer across creators keeps folder ownership checks and updates
+        # atomic. No writes to source folders.
+        folder = self.check_binding_folder(input_folder)
+        self.workspace.root.mkdir(parents=True, exist_ok=True)
+        lock = self.workspace.root / ".voice-bindings.lock"
+        try:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            raise CreatorDNAError("音色绑定正在写入或有残留锁；确认绑定进程停止后再处理 .voice-bindings.lock。") from None
+        try:
+            with os.fdopen(fd, "w") as stream:
+                stream.write(str(os.getpid()))
+            self.check_binding_folder(folder)
+            asset = self.usable(asset_id, provider)
+            binding = {"schema_version": "3.0-03", "creator_id": self.creator,
+                       "input_folder": str(folder), "voice_asset": asset["asset_id"],
+                       "voice_id": asset["voice_id"], "provider": asset["provider"],
+                       "scope": asset["scope"], "model": provider.settings["model"], "updated_at": now()}
+            validate(binding, "voice-binding")
+            write_json(self.root / "default.json", binding)
+            return binding
+        finally:
+            lock.unlink(missing_ok=True)
+
+    def binding(self):
+        path = self.root / "default.json"
+        if not path.exists():
+            raise CreatorDNAError("该创作者尚未绑定音色；先运行 tts bind --creator ID --input 素材文件夹 --voice-id 云端ID --config TTS配置，并填写授权。")
+        value = read_json(path)
+        validate(value, "voice-binding")
+        if value["creator_id"] != self.creator:
+            raise TTSError("CreatorMismatch")
+        self._check_manifest_folder(Path(value["input_folder"]).resolve())
+        return value
+
+    def default_voice(self, provider):
+        binding = self.binding()
+        if binding["provider"] != provider.name or binding["scope"] != provider.scope:
+            raise TTSError("ProviderOrAccountMismatch")
+        if binding["model"] != provider.settings["model"]:
+            raise TTSError("VoiceModelMismatch")
+        asset = self.usable(binding["voice_asset"], provider)
+        if asset["voice_id"] != binding["voice_id"]:
+            raise TTSError("VoiceChanged")
+        return asset
 
     def usable(self, asset_id, provider):
         asset = self.get(asset_id)
